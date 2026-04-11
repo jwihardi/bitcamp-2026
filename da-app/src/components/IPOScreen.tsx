@@ -9,7 +9,7 @@ const IPO_FLAVOR_LINES = [
   'Your lean team and sharp prompts made all the difference.',
   'Turns out crisp prompts compound better than headcount.',
   'Investors loved the margins. Customers loved the product enough.',
-  'You shipped just enough chaos management to look inevitable.',
+  'You kept the team focused long enough to make the outcome inevitable.',
 ]
 
 function fmtMoney(value: number) {
@@ -32,13 +32,12 @@ export function IPOScreen() {
 
   if (state.phase !== 'ipo') return null
 
-  const { valuation, arr, agents, vcChips, pendingPenalties } = state
+  const { valuation, arr, agents, vcChips } = state
   const chipsThisRun = Math.floor(valuation / 10_000_000)
   const companyName = `${agents[0]?.name ?? 'Your Startup'} & Co.`
-  const chaosEventsSurvived = pendingPenalties.length
   const completedPath = `${ROUNDS.pre_seed.label} → IPO`
   const flavorLine =
-    IPO_FLAVOR_LINES[(state.tickCount + chaosEventsSurvived + chipsThisRun) % IPO_FLAVOR_LINES.length]
+    IPO_FLAVOR_LINES[(state.tickCount + chipsThisRun) % IPO_FLAVOR_LINES.length]
 
   if (panel === 1) {
     return (
@@ -77,10 +76,6 @@ export function IPOScreen() {
             <div className="rounded-2xl bg-stone-100 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Peak ARR</p>
               <p className="mt-2 text-2xl font-semibold">{fmtMoney(arr)}</p>
-            </div>
-            <div className="rounded-2xl bg-stone-100 p-4">
-              <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Chaos events survived</p>
-              <p className="mt-2 text-2xl font-semibold">{chaosEventsSurvived}</p>
             </div>
             <div className="rounded-2xl bg-stone-100 p-4">
               <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Rounds completed</p>

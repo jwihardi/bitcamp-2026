@@ -213,12 +213,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
           return state.agents.length === 1
         case 'first_low_score':
           return state.agents.some((agent) => agent.qualityScore < 40)
-        case 'first_chaos_event':
-          return state.activeChaosEvent !== null
         case 'entered_burn_mode':
           return state.phase === 'burn_mode'
-        case 'first_penalty_cleared':
-          return state.pendingPenalties.some((penalty) => !penalty.active)
         default:
           return false
       }
@@ -230,10 +226,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     return () => window.clearTimeout(id)
   }, [
-    state.activeChaosEvent,
     state.agents,
     state.phase,
-    state.pendingPenalties,
     enqueueTipCard,
   ])
 

@@ -17,12 +17,6 @@ export type GamePhase =
   | 'ipo'
   | 'prestige_shop'
 
-export type ChaosEventType =
-  | 'hallucination'
-  | 'prod_bug'
-  | 'competitor'
-  | 'due_diligence'
-
 export type ModelId = 'nimbus_1' | 'quanta_s' | 'synapse_pro' | 'oracle_ultra'
 
 export type Model = {
@@ -41,12 +35,10 @@ export type TipTrigger =
   | 'first_tick'
   | 'first_low_score'
   | 'first_drift'
-  | 'first_chaos_event'
   | 'entered_burn_mode'
   | 'round_advance_seed'
   | 'round_advance_series_a'
   | 'round_advance_series_b'
-  | 'first_penalty_cleared'
   | 'runway_below_25k'
   | 'first_agent_fired'
   | 'ipo_triggered'
@@ -75,24 +67,6 @@ export type TipCard = {
   dismissLabel: string
 }
 
-export type ChaosEvent = {
-  type: ChaosEventType
-  agentRole: AgentRole
-  title: string
-  description: string
-  penaltyDescription: string
-  fixThreshold: number
-}
-
-export type Penalty = {
-  id: string
-  type: ChaosEventType
-  agentRole: AgentRole
-  description: string
-  active: boolean
-  appliedAt: number
-}
-
 export type Upgrades = {
   fasterTicks: 0 | 1 | 2 | 3
   biggerBudget: 0 | 1 | 2 | 3
@@ -119,9 +93,6 @@ export type GameState = {
 
   vcChips: number
   upgrades: Upgrades
-
-  activeChaosEvent: ChaosEvent | null
-  pendingPenalties: Penalty[]
 }
 
 export type TickPayload = {
@@ -132,8 +103,6 @@ export type TickPayload = {
   runwayDelta: number
   burnRate: number
   agentUpdates: { id: string; isOffTask: boolean }[]
-  activeChaosEvent: ChaosEvent | null
-  pendingPenalties: Penalty[]
   tipCard: TipCard | null
   phase: GamePhase
   newRound: FundingRound | null
@@ -162,7 +131,6 @@ export type Action =
       score: number
       cachedPromptText: string
     }
-  | { type: 'DISMISS_CHAOS_EVENT' }
   | { type: 'OPEN_PRESTIGE_SHOP' }
   | { type: 'CLOSE_PRESTIGE_SHOP' }
   | { type: 'ENTER_BURN_MODE' }

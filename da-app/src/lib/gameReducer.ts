@@ -38,8 +38,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
         burnRate: p.burnRate,
         valuation: p.valuation,
         agents: updatedAgents,
-        activeChaosEvent: p.activeChaosEvent,
-        pendingPenalties: p.pendingPenalties,
         phase: p.phase,
         round: p.newRound ?? state.round,
         agentSlots: p.newAgentSlots ?? state.agentSlots,
@@ -145,10 +143,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
             : a,
         ),
       }
-    }
-
-    case 'DISMISS_CHAOS_EVENT': {
-      return { ...state, activeChaosEvent: null }
     }
 
     case 'OPEN_PRESTIGE_SHOP': {

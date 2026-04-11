@@ -38,9 +38,7 @@ type GameState = {
   }
 
   // UI state
-  activeChaosEvent: ChaosEvent | null
   activeTipCard: TipCard | null
-  pendingPenalties: Penalty[]
 }
 ```
 
@@ -100,23 +98,6 @@ const ROUND_ORDER: FundingRound[] = [
 
 ---
 
-## Penalty shape
-
-Penalties persist until the player fixes the responsible agent's prompt.
-
-```ts
-type Penalty = {
-  id: string
-  type: 'hallucination' | 'prod_bug' | 'competitor' | 'due_diligence'
-  agentRole: AgentRole   // which agent caused it
-  description: string
-  active: boolean        // false once prompt score exceeds threshold
-  appliedAt: number      // tickCount when applied
-}
-```
-
----
-
 ## Initial state (new run)
 
 ```ts
@@ -140,9 +121,7 @@ const INITIAL_STATE: GameState = {
     promptTemplates: false,
     unlockedModelIds: ['nimbus_1'],
   },
-  activeChaosEvent: null,
   activeTipCard: null,
-  pendingPenalties: [],
 }
 ```
 

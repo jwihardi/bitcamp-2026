@@ -41,7 +41,6 @@ type TipTrigger =
   | 'round_advance_seed'
   | 'round_advance_series_a'
   | 'round_advance_series_b'
-  | 'first_penalty_cleared'
   | 'runway_below_25k'
   | 'first_agent_fired'
   | 'ipo_triggered'
@@ -118,14 +117,6 @@ const TIP_CARDS: TipCard[] = [
     dismissLabel: 'Got it',
   },
   {
-    id: 'first_penalty_cleared',
-    trigger: 'first_penalty_cleared',
-    title: 'Penalty cleared',
-    body: 'Better prompts fixed the damage. This is the core loop — write, observe, improve. Real prompt engineers do the same thing.',
-    concept: 'Iterative improvement',
-    dismissLabel: 'Nice',
-  },
-  {
     id: 'runway_below_25k',
     trigger: 'runway_below_25k',
     title: 'Runway critical',
@@ -171,8 +162,6 @@ function evaluateTipTriggers(state: GameState, firedTipIds: Set<string>): TipCar
         case 'round_advance_seed':  return state.round === 'seed'
         case 'round_advance_series_a': return state.round === 'series_a'
         case 'round_advance_series_b': return state.round === 'series_b'
-        case 'first_penalty_cleared':
-          return state.pendingPenalties.some(p => !p.active)
         case 'runway_below_25k':    return state.runway < 25_000
         case 'first_agent_fired':   return /* set a flag when agent is fired */ false
         case 'ipo_triggered':       return state.phase === 'ipo'

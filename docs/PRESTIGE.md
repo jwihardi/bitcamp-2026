@@ -8,7 +8,7 @@ Prestige is the IPO → acquisition → new run loop. It's the long-term progres
 
 IPO triggers when `state.arr * VALUATION_MULTIPLE >= 100_000_000`.
 
-With the default 10x multiple and no due diligence penalty, this means $10M ARR. With an active due diligence penalty (7x multiple), the player needs ~$14.3M ARR.
+With the default 10x multiple, this means $10M ARR.
 
 When triggered, dispatch `IPO_TRIGGERED` and set `state.phase = 'ipo'`. The tick engine pauses.
 
@@ -18,11 +18,7 @@ When triggered, dispatch `IPO_TRIGGERED` and set `state.phase = 'ipo'`. The tick
 
 ```ts
 function computeValuation(state: GameState): number {
-  const multiple = state.pendingPenalties.find(
-    p => p.type === 'due_diligence' && p.active
-  ) ? 7 : VALUATION_MULTIPLE
-
-  return Math.floor(state.arr * multiple)
+  return Math.floor(state.arr * VALUATION_MULTIPLE)
 }
 ```
 
@@ -36,7 +32,7 @@ function awardVcChips(valuation: number): number {
 }
 ```
 
-A $100M valuation = 10 chips. A $250M valuation (great prompts, no penalties) = 25 chips.
+A $100M valuation = 10 chips. A $250M valuation = 25 chips.
 
 Add awarded chips to the persistent `state.vcChips`. This is one of the two values that must survive the reset (along with `upgrades`).
 
@@ -62,7 +58,6 @@ Contents:
 - Final valuation: "$127M"
 - Peak ARR: "$12.4M"
 - Agents: list of agent name + role pairs with their icons
-- Chaos events survived: count
 - Rounds completed: e.g. "Pre-seed → IPO"
 - VC chips earned this run: "+12 chips"
 - Total VC chips: "34 chips total"
@@ -156,7 +151,7 @@ const newRunState: GameState = {
 }
 ```
 
-Everything else resets: agents, ARR, runway (recalculated), users, features, round, tickCount, penalties
+Everything else resets: agents, ARR, runway (recalculated), users, features, round, tickCount
 
 ---
 

@@ -2,7 +2,6 @@
 
 import { HUD } from '../components/HUD'
 import { AgentGrid } from '../components/AgentGrid'
-import { ChaosEventCard } from '../components/ChaosEventCard'
 import { TipCard } from '../components/TipCard'
 import { GameOverScreen } from '../components/GameOverScreen'
 import { IPOScreen } from '../components/IPOScreen'
@@ -21,7 +20,6 @@ function HomeContent() {
       <main className="mx-auto max-w-6xl px-4 py-8">
         <AgentGrid />
       </main>
-      <ChaosEventCard />
       <TipCard />
       <GameOverScreen />
       <IPOScreen />
