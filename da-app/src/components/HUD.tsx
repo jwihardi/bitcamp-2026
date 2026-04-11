@@ -1,14 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../context/GameContext'
 import { ROUNDS } from '../lib/constants'
 import { checkMilestone } from '../lib/tickEngine'
 
-function fmt(n: number) {
+function fmtMoney(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}k`
   return `$${n.toFixed(0)}`
+}
+
+function fmtCount(n: number) {
+  return n.toLocaleString()
 }
 
 function fmtTime(seconds: number) {
@@ -20,17 +24,29 @@ function fmtTime(seconds: number) {
 export function HUD() {
   const { state, dispatch } = useGame()
   const { round, arr, runway, users, features, vcChips, upgrades, phase } = state
-
   const config = ROUNDS[round]
+
   const [timerState, setTimerState] = useState(() => ({
     round,
     timeRemaining: config.timeLimit,
   }))
+  const [advanceBanner, setAdvanceBanner] = useState<{
+    roundLabel: string
+    slots: number
+  } | null>(null)
+  const [showFlash, setShowFlash] = useState(false)
+
+  const latestStateRef = useRef(state)
+  useEffect(() => {
+    latestStateRef.current = state
+  }, [state])
 
   useEffect(() => {
     if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') return
 
     const id = setInterval(() => {
+      const currentState = latestStateRef.current
+
       setTimerState((current) => {
         if (current.round !== round) {
           return {
@@ -40,7 +56,9 @@ export function HUD() {
         }
 
         if (current.timeRemaining <= 1) {
-          dispatch({ type: 'GAME_OVER' })
+          if (!checkMilestone(currentState)) {
+            dispatch({ type: 'GAME_OVER' })
+          }
           return { ...current, timeRemaining: 0 }
         }
 
@@ -54,8 +72,32 @@ export function HUD() {
     return () => clearInterval(id)
   }, [phase, round, dispatch])
 
+  const previousRoundRef = useRef(round)
+  useEffect(() => {
+    if (previousRoundRef.current === round) return
+
+    const bannerId = window.setTimeout(() => {
+      setShowFlash(true)
+      setAdvanceBanner({
+        roundLabel: config.label,
+        slots: config.agentSlotsUnlocked,
+      })
+    }, 0)
+    const flashOffId = window.setTimeout(() => setShowFlash(false), 150)
+    const bannerOffId = window.setTimeout(() => setAdvanceBanner(null), 3000)
+
+    previousRoundRef.current = round
+
+    return () => {
+      window.clearTimeout(bannerId)
+      window.clearTimeout(flashOffId)
+      window.clearTimeout(bannerOffId)
+    }
+  }, [round, config.label, config.agentSlotsUnlocked])
+
   const timeRemaining =
     timerState.round === round ? timerState.timeRemaining : config.timeLimit
+  const threshold = config.timeLimit * 0.2
   const hasPrestigeAccess =
     vcChips > 0 ||
     upgrades.fasterTicks > 0 ||
@@ -64,43 +106,104 @@ export function HUD() {
 
   useEffect(() => {
     if (phase !== 'playing') return
-    const threshold = config.timeLimit * 0.2
-    const milestoneMet = checkMilestone(state)
-    if (timeRemaining <= threshold && !milestoneMet) {
+    if (timeRemaining > threshold) return
+    if (checkMilestone(state)) return
+
+    const id = window.setTimeout(() => {
       dispatch({ type: 'ENTER_BURN_MODE' })
-    }
-  }, [timeRemaining, phase, config.timeLimit, state, dispatch])
+    }, 0)
+
+    return () => window.clearTimeout(id)
+  }, [timeRemaining, threshold, phase, state, dispatch])
+
+  const arrTarget = config.arr || 100_000_000
+  const arrProgress = Math.min(100, (100 * (config.arr ? arr : state.valuation)) / arrTarget)
+  const timerTone =
+    timeRemaining <= 20
+      ? 'text-red-600'
+      : timeRemaining <= 60
+        ? 'text-amber-600'
+        : 'text-stone-700'
+  const runwayTone = runway < 50_000 ? 'text-red-600' : 'text-stone-700'
 
   return (
-    <header>
-      <span>{config.label}</span>
+    <>
+      {showFlash && <div className="pointer-events-none fixed inset-0 z-40 bg-white/70" />}
 
-      <div>
-        <span>ARR: {fmt(arr)} / {fmt(config.arr || 100_000_000)}</span>
-        <progress value={config.arr ? arr : state.valuation} max={config.arr || 100_000_000} />
-      </div>
-
-      {config.users != null && (
-        <span>Users: {users.toLocaleString()} / {config.users.toLocaleString()}</span>
+      {advanceBanner && (
+        <div className="pointer-events-none fixed left-1/2 top-6 z-50 -translate-x-1/2">
+          <div className="rounded-2xl border border-stone-200 bg-white px-5 py-3 text-sm font-medium text-stone-900 shadow-xl">
+            {advanceBanner.roundLabel} unlocked! {advanceBanner.slots} agent slots available.
+          </div>
+        </div>
       )}
 
-      {config.features != null && (
-        <span>Features: {Math.floor(features)} / {config.features}</span>
-      )}
+      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-stone-500">Funding Gate</p>
+              <h1 className="mt-1 text-2xl font-semibold text-stone-950">{config.label}</h1>
+            </div>
 
-      <span>Time: {fmtTime(timeRemaining)}</span>
+            <div className="flex flex-wrap items-center gap-3 text-sm">
+              <span className={`font-medium ${timerTone}`}>Time: {fmtTime(timeRemaining)}</span>
+              <span className={`font-medium ${runwayTone}`}>Runway: {fmtMoney(runway)} runway</span>
+              {vcChips > 0 && <span className="text-stone-700">VC Chips: {vcChips}</span>}
+              {hasPrestigeAccess && phase === 'playing' && (
+                <button
+                  type="button"
+                  onClick={() => dispatch({ type: 'OPEN_PRESTIGE_SHOP' })}
+                  className="rounded-full border border-stone-300 px-3 py-1.5 text-stone-700"
+                >
+                  Chip Shop
+                </button>
+              )}
+            </div>
+          </div>
 
-      <span>Runway: {fmt(runway)}</span>
+          <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto]">
+            <div className="rounded-2xl bg-stone-100 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-medium text-stone-700">
+                  {fmtMoney(arr)} / {fmtMoney(arrTarget)} ARR
+                </span>
+                <span className="text-xs text-stone-500">{arrProgress.toFixed(0)}%</span>
+              </div>
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-stone-200">
+                <div
+                  className="h-full rounded-full bg-stone-900 transition-[width] duration-300"
+                  style={{ width: `${arrProgress}%` }}
+                />
+              </div>
+            </div>
 
-      {vcChips > 0 && <span>VC Chips: {vcChips}</span>}
+            <div className="rounded-2xl bg-stone-100 p-4">
+              {config.users != null ? (
+                <p className="text-sm font-medium text-stone-700">
+                  {fmtCount(users)} / {fmtCount(config.users)} users
+                </p>
+              ) : config.features != null ? (
+                <p className="text-sm font-medium text-stone-700">
+                  {Math.floor(features)} / {config.features} features
+                </p>
+              ) : (
+                <p className="text-sm font-medium text-stone-500">No secondary condition</p>
+              )}
+            </div>
 
-      {hasPrestigeAccess && phase === 'playing' && (
-        <button type="button" onClick={() => dispatch({ type: 'OPEN_PRESTIGE_SHOP' })}>
-          Chip Shop
-        </button>
-      )}
-
-      {phase === 'burn_mode' && <span>⚠ Burn mode active</span>}
-    </header>
+            <div
+              className={`rounded-2xl px-4 py-3 text-sm font-medium ${
+                phase === 'burn_mode'
+                  ? 'bg-red-100 text-red-700 ring-2 ring-red-200'
+                  : 'bg-stone-100 text-stone-700'
+              }`}
+            >
+              {phase === 'burn_mode' ? 'Burn mode active' : 'Stable'}
+            </div>
+          </div>
+        </div>
+      </header>
+    </>
   )
 }
