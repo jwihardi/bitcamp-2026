@@ -15,23 +15,28 @@ export const BUDGET_PER_TIER = 25_000
 export const VALUATION_MULTIPLE = 10
 
 export const AGENT_SALARY: Record<AgentRole, number> = {
-  sales:       3000,
-  marketing:   2500,
+  sales: 3000,
+  marketing: 2500,
   engineering: 3500,
-  finance:     2800,
+  finance: 2800,
 }
 
-export const BASE_OUTPUT: Record<AgentRole, { arr?: number; users?: number; features?: number }> = {
-  sales:       { arr: 8000 },
-  marketing:   { arr: 2000, users: 50 },
+export const BASE_OUTPUT: Record<
+  AgentRole,
+  { arr?: number; users?: number; features?: number }
+> = {
+  sales: { arr: 8000 },
+  marketing: { arr: 2000, users: 50 },
   engineering: { arr: 1000, features: 0.05 },
-  finance:     {},   // finance reduces burnRate; handled separately
+  finance: {},
 }
 
 // ---- Tick ----
 
 export const DEFAULT_TICK_INTERVAL = 3000
-export const TICK_INTERVALS: [number, number, number, number] = [3000, 2500, 2000, 1500]
+export const TICK_INTERVALS: readonly [number, number, number, number] = [
+  3000, 2500, 2000, 1500,
+]
 
 export const DRIFT_CHANCE = 0.15
 export const CHAOS_CHANCE_PER_TICK = 0.04
@@ -44,7 +49,7 @@ export type MilestoneConfig = {
   users?: number
   features?: number
   agentSlotsUnlocked: number
-  timeLimit: number   // seconds
+  timeLimit: number
   label: string
 }
 
@@ -85,10 +90,14 @@ export const ROUNDS: Record<FundingRound, MilestoneConfig> = {
 }
 
 export const ROUND_ORDER: FundingRound[] = [
-  'pre_seed', 'seed', 'series_a', 'series_b', 'ipo',
+  'pre_seed',
+  'seed',
+  'series_a',
+  'series_b',
+  'ipo',
 ]
 
-// ---- Chaos event config ----
+// ---- Chaos events ----
 
 export type ChaosEventConfig = {
   agentRole: AgentRole
@@ -102,7 +111,8 @@ export const CHAOS_EVENT_CONFIGS: Record<ChaosEventType, ChaosEventConfig> = {
   hallucination: {
     agentRole: 'marketing',
     title: 'Your Marketing agent hallucinated a product feature',
-    description: "They published a blog post promising a feature that doesn't exist. Users are churning.",
+    description:
+      "They published a blog post promising a feature that doesn't exist. Users are churning.",
     penaltyDescription: '-20% users per tick until Marketing prompt improves',
     fixThreshold: 65,
   },
@@ -110,21 +120,25 @@ export const CHAOS_EVENT_CONFIGS: Record<ChaosEventType, ChaosEventConfig> = {
     agentRole: 'engineering',
     title: 'Engineering shipped a bug to prod',
     description: 'A critical bug hit production. Customers are cancelling.',
-    penaltyDescription: '-25% ARR per tick from churn until Engineering prompt improves',
+    penaltyDescription:
+      '-25% ARR per tick from churn until Engineering prompt improves',
     fixThreshold: 65,
   },
   competitor: {
     agentRole: 'sales',
     title: 'A competitor just launched a similar product',
-    description: "They're undercutting your pricing. Deals are stalling.",
+    description:
+      "They're undercutting your pricing. Deals are stalling.",
     penaltyDescription: '-30% Sales output per tick until Sales prompt is updated',
     fixThreshold: 70,
   },
   due_diligence: {
     agentRole: 'finance',
     title: 'Investors audited your Finance agent',
-    description: 'They found your financial projections are vague and unconvincing.',
-    penaltyDescription: 'Valuation multiple reduced to 7x until Finance prompt improves',
+    description:
+      'They found your financial projections are vague and unconvincing.',
+    penaltyDescription:
+      'Valuation multiple reduced to 7x until Finance prompt improves',
     fixThreshold: 60,
   },
 }
@@ -251,22 +265,22 @@ export const PROMPT_TEMPLATES: Record<AgentRole, string> = {
     'Reduce monthly burn by 12%. Audit SaaS subscriptions first. Flag any expense over $500 without a clear ROI.',
 }
 
-// ---- Icons ----
+// ---- Icons and role colors ----
 
 export const AGENT_ICONS: Record<AgentIcon, string> = {
-  robot:     '🤖',
+  robot: '🤖',
   briefcase: '💼',
-  chart:     '📊',
-  wrench:    '🔧',
+  chart: '📊',
+  wrench: '🔧',
   lightbulb: '💡',
-  rocket:    '🚀',
+  rocket: '🚀',
 }
 
 export const ROLE_COLORS: Record<AgentRole, string> = {
-  sales:       'bg-blue-100 text-blue-800',
-  marketing:   'bg-purple-100 text-purple-800',
+  sales: 'bg-blue-100 text-blue-800',
+  marketing: 'bg-purple-100 text-purple-800',
   engineering: 'bg-teal-100 text-teal-800',
-  finance:     'bg-amber-100 text-amber-800',
+  finance: 'bg-amber-100 text-amber-800',
 }
 
 // ---- Initial state ----
@@ -300,11 +314,11 @@ export const INITIAL_STATE: GameState = {
 // ---- Upgrade costs ----
 
 export const UPGRADE_COSTS: {
-  fasterTicks: [number, number, number]
-  biggerBudget: [number, number, number]
+  fasterTicks: readonly [number, number, number]
+  biggerBudget: readonly [number, number, number]
   promptTemplates: number
 } = {
-  fasterTicks:    [2, 5, 10],
-  biggerBudget:   [1, 3, 7],
+  fasterTicks: [2, 5, 10],
+  biggerBudget: [1, 3, 7],
   promptTemplates: 3,
 }
