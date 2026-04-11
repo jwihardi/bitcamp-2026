@@ -23,16 +23,22 @@ function getAgentModel(agent: Agent) {
   return MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
 }
 
+export function hasActivePrompt(agent: Agent): boolean {
+  return agent.prompt.trim().length > 0
+}
+
 export function getEffectiveQualityScore(agent: Agent): number {
   const model = getAgentModel(agent)
   return Math.min(agent.qualityScore, model.qualityCap)
 }
 
 export function getAgentTokensForBurn(agent: Agent): number {
+  if (!hasActivePrompt(agent)) return 0
   return agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
 }
 
 export function getAgentTickCost(agent: Agent): number {
+  if (!hasActivePrompt(agent)) return 0
   const model = getAgentModel(agent)
   return AGENT_SALARY[agent.role] + getAgentTokensForBurn(agent) * model.costPerToken
 }
@@ -63,6 +69,7 @@ export function applyFinanceAgents(state: GameState, baseBurn: number): number {
 // ---- Drift roll ----
 
 export function rollDrift(agent: Agent): boolean {
+  if (!hasActivePrompt(agent)) return false
   if (agent.qualityScore >= 40) return false
   return Math.random() < DRIFT_CHANCE
 }
@@ -162,6 +169,7 @@ export function resolveTick(
   let featuresDelta = 0
 
   for (const agent of agentsThisTick) {
+    if (!hasActivePrompt(agent)) continue
     if (agent.isOffTask) continue
 
     const base = BASE_OUTPUT[agent.role]

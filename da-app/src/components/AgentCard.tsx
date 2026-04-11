@@ -5,11 +5,11 @@ import type { Agent, AgentIcon } from '../lib/types'
 import { useGame } from '../context/GameContext'
 import {
   AGENT_ICONS,
-  AGENT_SALARY,
   DEFAULT_MODEL_ID,
   MODELS,
   ROLE_COLORS,
 } from '../lib/constants'
+import { getAgentTickCost, hasActivePrompt } from '../lib/tickEngine'
 import { AgentEditModal } from './AgentEditModal'
 
 type Props = { agent: Agent }
@@ -51,9 +51,10 @@ export function AgentCard({ agent }: Props) {
   const hasPrompt = agent.prompt.trim().length > 0
   const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
   const effectiveTokens = agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
-  const perTickCost = AGENT_SALARY[agent.role] + effectiveTokens * model.costPerToken
+  const perTickCost = getAgentTickCost(agent)
   const overCap = agent.qualityScore > model.qualityCap
   const evalCached = agent.evalResult != null
+  const promptActive = hasActivePrompt(agent)
 
   return (
     <>
@@ -132,9 +133,9 @@ export function AgentCard({ agent }: Props) {
         <p className="mt-1 text-[11px] text-stone-400">
           ~${perTickCost.toLocaleString()}/tick
           <span className="text-stone-500">
-            {' '}
-            (${AGENT_SALARY[agent.role].toLocaleString()} + {effectiveTokens} × ${model.costPerToken}
-            {agent.evalResult && ' · AI est'})
+            {promptActive
+              ? ` (${effectiveTokens} tok × $${model.costPerToken}${agent.evalResult ? ' · AI est' : ''} + salary)`
+              : ' (idle: no prompt)'}
           </span>
         </p>
 

@@ -13,6 +13,7 @@ import { shouldInvalidateCachedGrade } from './promptGrader'
 
 function computeImmediateBurnRate(state: GameState): number {
   return state.agents.reduce((sum, agent) => {
+    if (agent.prompt.trim().length === 0) return sum
     const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
     const tokens = agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
     return sum + AGENT_SALARY[agent.role] + tokens * model.costPerToken
@@ -50,14 +51,11 @@ export function gameReducer(state: GameState, action: Action): GameState {
       if (state.agents.length >= state.agentSlots) return state
 
       const agents = [...state.agents, action.agent]
-      const runway = Math.max(0, state.runway - AGENT_SALARY[action.agent.role])
 
       return {
         ...state,
         agents,
-        runway,
         burnRate: computeImmediateBurnRate({ ...state, agents }),
-        phase: runway <= 0 ? 'game_over' : state.phase,
       }
     }
 
@@ -94,7 +92,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
             prompt: action.prompt,
             tokenCount: action.tokenCount,
             qualityScore,
-            driftRisk: qualityScore < 40,
+            driftRisk: action.prompt.trim().length > 0 && qualityScore < 40,
             evalResult: evalStillValid ? a.evalResult : null,
             evalPromptSnapshot: evalStillValid ? a.evalPromptSnapshot : null,
           }

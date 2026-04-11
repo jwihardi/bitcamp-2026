@@ -5,9 +5,7 @@ import type { Agent, ModelId } from '../lib/types'
 import { useGame } from '../context/GameContext'
 import {
   AGENT_ICONS,
-  AGENT_SALARY,
   DEFAULT_MODEL_ID,
-  EVAL_COST,
   MODELS,
   PROMPT_TEMPLATES,
   ROLE_COLORS,
@@ -15,9 +13,11 @@ import {
 import {
   computeHeuristicScore,
   countTokens,
+  EMPTY_EVALUATION,
   evaluatePrompt,
   shouldInvalidateCachedGrade,
 } from '../lib/promptGrader'
+import { getAgentTickCost, hasActivePrompt } from '../lib/tickEngine'
 
 type Props = { agent: Agent; onClose: () => void }
 
@@ -56,14 +56,27 @@ export function AgentEditModal({ agent, onClose }: Props) {
       tokenCount,
       qualityScore,
     })
-    notifyCFOActivity()
   }
 
-  async function handleEvaluate() {
-    if (!agent.prompt.trim()) return
-    if (state.runway < EVAL_COST) return
-
+  async function handleDone() {
     const promptSnapshot = agent.prompt
+    if (!promptSnapshot.trim()) {
+      notifyCFOActivity()
+      onClose()
+      return
+    }
+
+    const needsEvaluation =
+      agent.evalResult == null ||
+      agent.evalPromptSnapshot == null ||
+      shouldInvalidateCachedGrade(promptSnapshot, agent.evalPromptSnapshot)
+
+    if (!needsEvaluation) {
+      notifyCFOActivity()
+      onClose()
+      return
+    }
+
     setEvaluating(true)
     setEvalError(null)
     try {
@@ -78,12 +91,13 @@ export function AgentEditModal({ agent, onClose }: Props) {
         agentId: agent.id,
         evaluation,
         promptSnapshot,
-        cost: EVAL_COST,
+        cost: 0,
       })
       notifyCFOActivity()
+      onClose()
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Evaluation failed — try again.'
+        error instanceof Error ? error.message : 'Evaluation failed while saving.'
       setEvalError(message)
     } finally {
       setEvaluating(false)
@@ -103,44 +117,29 @@ export function AgentEditModal({ agent, onClose }: Props) {
 
   const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
   const currentModel = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
-  const evalResult = agent.evalResult
-  const evalCached = evalResult != null
+  const promptActive = hasActivePrompt(agent)
+  const evalResult = agent.evalResult ?? (promptActive ? null : EMPTY_EVALUATION)
+  const evalCached = agent.evalResult != null
   const evalStale =
-    evalCached &&
+    agent.evalResult != null &&
     shouldInvalidateCachedGrade(agent.prompt, agent.evalPromptSnapshot ?? '')
   const effectiveTokens = evalResult?.estimatedTokensPerTick ?? agent.tokenCount
-  const perTickCost =
-    AGENT_SALARY[agent.role] + effectiveTokens * currentModel.costPerToken
+  const perTickCost = getAgentTickCost(agent)
   const estimatedComputeCost = effectiveTokens * currentModel.costPerToken
   const overCap = agent.qualityScore > currentModel.qualityCap
   const unlockedModels = state.upgrades.unlockedModelIds
     .map((id) => MODELS[id])
     .filter((m): m is NonNullable<typeof m> => Boolean(m))
 
-  const canAffordEval = state.runway >= EVAL_COST
-  const evaluateDisabled = evaluating || !agent.prompt.trim() || !canAffordEval
-
-  function evaluateButtonLabel(): string {
-    if (evaluating) return 'Evaluating…'
-    if (evalError) return 'Retry'
-    if (!canAffordEval) return `Evaluate ($${EVAL_COST})`
-    if (evalStale) return `Re-evaluate ($${EVAL_COST}) ⟳`
-    if (evalCached) return 'Evaluated ✓'
-    return `Evaluate ($${EVAL_COST}) ✦`
-  }
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-stone-950/70"
         onClick={onClose}
         aria-hidden="true"
       />
 
-      {/* Modal card */}
       <div className="relative z-10 flex w-full max-w-lg flex-col rounded-2xl bg-stone-950 p-6 text-stone-50 shadow-2xl">
-        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -150,7 +149,9 @@ export function AgentEditModal({ agent, onClose }: Props) {
                 {roleName}
               </span>
             </div>
-            <p className="mt-1 text-xs text-stone-400">Edit this agent&rsquo;s prompt to improve their output.</p>
+            <p className="mt-1 text-xs text-stone-400">
+              Edit this agent&rsquo;s prompt. Saving will evaluate it automatically.
+            </p>
           </div>
           <button
             type="button"
@@ -162,7 +163,6 @@ export function AgentEditModal({ agent, onClose }: Props) {
           </button>
         </div>
 
-        {/* Prompt textarea */}
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Prompt</p>
@@ -179,7 +179,7 @@ export function AgentEditModal({ agent, onClose }: Props) {
           </div>
           <textarea
             value={agent.prompt}
-            onChange={e => handlePromptChange(e.target.value)}
+            onChange={(e) => handlePromptChange(e.target.value)}
             placeholder={`Tell your ${agent.role} agent what to do...`}
             rows={6}
             autoFocus
@@ -187,7 +187,6 @@ export function AgentEditModal({ agent, onClose }: Props) {
           />
         </div>
 
-        {/* Template button */}
         {state.upgrades.promptTemplates && (
           <button
             type="button"
@@ -198,13 +197,10 @@ export function AgentEditModal({ agent, onClose }: Props) {
           </button>
         )}
 
-        {/* Model */}
         <div className="mt-5">
           <div className="mb-2 flex items-center justify-between">
             <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Model</p>
-            <span className="text-xs text-stone-400">
-              ~${perTickCost.toLocaleString()}/tick
-            </span>
+            <span className="text-xs text-stone-400">~${perTickCost.toLocaleString()}/tick</span>
           </div>
           <select
             value={agent.modelId}
@@ -218,8 +214,8 @@ export function AgentEditModal({ agent, onClose }: Props) {
             ))}
           </select>
           <p className="mt-2 text-[11px] leading-snug text-stone-500">
-            Cost formula: <span className="text-stone-300">salary + tokens × ${currentModel.costPerToken}</span>.
-            Effective quality is capped at {currentModel.qualityCap}.
+            Active prompts cost <span className="text-stone-300">salary + tokens × ${currentModel.costPerToken}</span>.
+            Empty prompts cost $0/tick. Effective quality is capped at {currentModel.qualityCap}.
           </p>
           {overCap && (
             <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300">
@@ -229,7 +225,6 @@ export function AgentEditModal({ agent, onClose }: Props) {
           )}
         </div>
 
-        {/* AI evaluation section */}
         {evalResult && (
           <div
             className={`mt-5 rounded-xl border px-4 py-3 text-xs transition-colors ${
@@ -249,9 +244,7 @@ export function AgentEditModal({ agent, onClose }: Props) {
             <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
               <p>
                 ⚡ ~{evalResult.estimatedTokensPerTick} tokens/tick{' '}
-                <span className="text-stone-500">
-                  (${estimatedComputeCost.toLocaleString()} compute)
-                </span>
+                <span className="text-stone-500">(${estimatedComputeCost.toLocaleString()} compute)</span>
               </p>
               <p>💰 ~${evalResult.estimatedRevenuePerTick.toLocaleString()} rev/tick</p>
               <p className={`font-medium ${efficiencyClass(evalResult.tokenEfficiency)}`}>
@@ -261,32 +254,26 @@ export function AgentEditModal({ agent, onClose }: Props) {
             <p className="mt-2 text-stone-300">&ldquo;{evalResult.explanation}&rdquo;</p>
             {evalStale && (
               <p className="mt-2 text-[11px] italic text-amber-300">
-                Prompt changed — re-evaluate.
+                Prompt changed. Saving will re-evaluate it automatically.
+              </p>
+            )}
+            {!promptActive && (
+              <p className="mt-2 text-[11px] italic text-stone-400">
+                Empty prompts produce no output and cost nothing.
               </p>
             )}
           </div>
         )}
 
-        {/* Footer: evaluate + done */}
         <div className="mt-5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handleEvaluate}
-              disabled={evaluateDisabled}
-              title={!canAffordEval ? 'Not enough runway' : undefined}
-              className="rounded-xl border border-stone-700 px-4 py-2 text-sm text-stone-200 transition-colors hover:border-stone-500 hover:text-stone-50 disabled:cursor-not-allowed disabled:text-stone-600"
-            >
-              {evaluateButtonLabel()}
-            </button>
-            {evalError && <span className="text-xs text-red-400">{evalError}</span>}
-          </div>
+          {evalError && <span className="text-xs text-red-400">{evalError}</span>}
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-semibold text-stone-950"
+            onClick={() => void handleDone()}
+            disabled={evaluating}
+            className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-semibold text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-300"
           >
-            Done
+            {evaluating ? 'Saving…' : 'Done'}
           </button>
         </div>
       </div>

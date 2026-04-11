@@ -66,7 +66,8 @@ The player wrote this prompt for their ${role} agent:
 ${promptBlock}
 </prompt>
 
-Evaluate and return ONLY a JSON object, no markdown, no preamble:
+Respond with ONLY valid JSON. No markdown. No code fences. Keep it concise.
+Keep the explanation under 18 words.
 {
   "score": <0-100, how effective this prompt is for a ${role} agent>,
   "estimatedTokensPerTick": <integer, estimate how many LLM tokens this prompt would consume per invocation — consider prompt length, instruction complexity, and expected output size>,
@@ -74,6 +75,30 @@ Evaluate and return ONLY a JSON object, no markdown, no preamble:
   "tokenEfficiency": <float rounded to 2 decimals, ratio of estimatedRevenuePerTick to estimatedTokensPerTick — higher is better>,
   "explanation": "<one sentence on what makes this prompt good or bad for a ${role} agent, max 25 words>"
 }`
+}
+
+async function requestEvaluation(
+  prompt: string,
+  role: AgentRole,
+  round: FundingRound,
+  arr: number,
+  users: number,
+  features: number,
+) {
+  return callGemini(
+    [
+      {
+        role: 'user',
+        content: buildEvaluatePrompt(prompt, role, round, arr, users, features),
+      },
+    ],
+    220,
+    {
+      temperature: 0.1,
+      topP: 0.8,
+      thinkingConfig: { thinkingBudget: 0 },
+    },
+  )
 }
 
 function clampScore(value: unknown): number {
@@ -161,21 +186,19 @@ export async function POST(request: Request) {
     },
   })
 
-  const result = await callGemini(
-    [
-      {
-        role: 'user',
-        content: buildEvaluatePrompt(
-          prompt,
-          role as AgentRole,
-          round as FundingRound,
-          Math.max(0, Math.floor(arr)),
-          Math.max(0, Math.floor(users)),
-          Math.max(0, Math.floor(features)),
-        ),
-      },
-    ],
-    1000,
+  const normalizedRole = role as AgentRole
+  const normalizedRound = round as FundingRound
+  const normalizedArr = Math.max(0, Math.floor(arr))
+  const normalizedUsers = Math.max(0, Math.floor(users))
+  const normalizedFeatures = Math.max(0, Math.floor(features))
+
+  let result = await requestEvaluation(
+    prompt,
+    normalizedRole,
+    normalizedRound,
+    normalizedArr,
+    normalizedUsers,
+    normalizedFeatures,
   )
 
   if (!result.ok) {
@@ -213,11 +236,59 @@ export async function POST(request: Request) {
     logEvaluateDebug('evaluation', evaluation)
     return Response.json(evaluation)
   } catch (error) {
+    const malformed = !result.text.trim().endsWith('}')
+    if (malformed) {
+      logEvaluateDebug('retrying_compact_response', { rawText: result.text })
+      result = await requestEvaluation(
+        prompt,
+        normalizedRole,
+        normalizedRound,
+        normalizedArr,
+        normalizedUsers,
+        normalizedFeatures,
+      )
+
+      if (result.ok) {
+        try {
+          const parsed = JSON.parse(extractJsonObject(result.text)) as {
+            score?: unknown
+            estimatedTokensPerTick?: unknown
+            estimatedRevenuePerTick?: unknown
+            tokenEfficiency?: unknown
+            explanation?: unknown
+          }
+
+          if (typeof parsed.explanation !== 'string') {
+            throw new Error('Evaluator returned an invalid explanation.')
+          }
+
+          const evaluation = {
+            score: clampScore(parsed.score),
+            estimatedTokensPerTick: clampNonNegativeInt(
+              parsed.estimatedTokensPerTick,
+              'estimatedTokensPerTick',
+            ),
+            estimatedRevenuePerTick: clampNonNegativeInt(
+              parsed.estimatedRevenuePerTick,
+              'estimatedRevenuePerTick',
+            ),
+            tokenEfficiency: clampEfficiency(parsed.tokenEfficiency),
+            explanation: parsed.explanation,
+          }
+
+          logEvaluateDebug('evaluation', evaluation)
+          return Response.json(evaluation)
+        } catch {
+          // Fall through to the normal parse error below.
+        }
+      }
+    }
+
     const message =
       error instanceof Error ? error.message : 'Evaluation failed unexpectedly.'
     logEvaluateDebug('parse_error', {
       message,
-      rawText: result.text,
+      rawText: result.ok ? result.text : undefined,
     })
     return jsonError(message, 502)
   }

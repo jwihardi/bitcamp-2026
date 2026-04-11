@@ -101,7 +101,7 @@ export async function callGemini(
     logGeminiDebug('http_error', { status: response.status, detail })
     return {
       ok: false,
-      status: 502,
+      status: response.status,
       body: {
         error: `Gemini request failed: ${response.status}${detail ? ` ${detail}` : ''}`,
       },

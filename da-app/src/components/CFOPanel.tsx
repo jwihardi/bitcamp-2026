@@ -13,6 +13,14 @@ type LocalCFOState = {
   round: GameState['round']
 }
 
+function parseRetryDelayMs(message: string): number | null {
+  const match = message.match(/retry in ([\d.]+)s/i)
+  if (!match) return null
+  const seconds = Number(match[1])
+  if (Number.isNaN(seconds) || seconds <= 0) return null
+  return Math.ceil(seconds * 1000)
+}
+
 const HEALTH_BG: Record<CFOHealth, string> = {
   healthy: 'bg-emerald-100 text-emerald-800',
   warning: 'bg-amber-100 text-amber-800',
@@ -67,6 +75,7 @@ export function CFOPanel() {
   const [loading, setLoading] = useState(false)
   const [local, setLocal] = useState<LocalCFOState | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [retryAfterMs, setRetryAfterMs] = useState(0)
   const inFlightRef = useRef(false)
   const lastRefreshActivityRef = useRef(-1)
   const prevRoundRef = useRef(state.round)
@@ -80,9 +89,11 @@ export function CFOPanel() {
   const roundAdvanced = prevRoundRef.current !== state.round
   const shouldRefreshAfterInteraction =
     stale && cfoActivityVersion > lastRefreshActivityRef.current
+  const rateLimited = retryAfterMs > 0
 
   const refreshCFO = useCallback(async (force = false) => {
     if (panelDisabled || inFlightRef.current) return
+    if (!force && rateLimited) return
     if (!force && !roundAdvanced && !shouldRefreshAfterInteraction && local != null) return
     inFlightRef.current = true
     lastRefreshActivityRef.current = cfoActivityVersion
@@ -125,6 +136,7 @@ export function CFOPanel() {
         signature,
         round: state.round,
       })
+      setRetryAfterMs(0)
       prevRoundRef.current = state.round
 
       if (!hasFiredTip('first_cfo_consult')) {
@@ -132,7 +144,14 @@ export function CFOPanel() {
         enqueueTipCard(tip)
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'CFO unavailable — try again.')
+      const message = err instanceof Error ? err.message : 'CFO unavailable — try again.'
+      const retryDelayMs = parseRetryDelayMs(message)
+      if (retryDelayMs != null) {
+        setRetryAfterMs(retryDelayMs)
+        setError(`CFO is rate-limited. Try again in about ${Math.ceil(retryDelayMs / 1000)}s.`)
+      } else {
+        setError(message)
+      }
     } finally {
       inFlightRef.current = false
       setLoading(false)
@@ -143,6 +162,7 @@ export function CFOPanel() {
     hasFiredTip,
     local,
     panelDisabled,
+    rateLimited,
     roundAdvanced,
     shouldRefreshAfterInteraction,
     signature,
@@ -150,7 +170,16 @@ export function CFOPanel() {
   ])
 
   useEffect(() => {
+    if (retryAfterMs <= 0) return
+    const id = window.setTimeout(() => {
+      setRetryAfterMs(0)
+    }, retryAfterMs)
+    return () => window.clearTimeout(id)
+  }, [retryAfterMs])
+
+  useEffect(() => {
     if (panelDisabled || state.tickCount === 0) return
+    if (rateLimited) return
     if (!roundAdvanced && !shouldRefreshAfterInteraction && local != null) return
 
     const id = window.setTimeout(() => {
@@ -158,7 +187,7 @@ export function CFOPanel() {
     }, local ? 900 : 1200)
 
     return () => window.clearTimeout(id)
-  }, [local, panelDisabled, refreshCFO, roundAdvanced, shouldRefreshAfterInteraction, state.tickCount])
+  }, [local, panelDisabled, rateLimited, refreshCFO, roundAdvanced, shouldRefreshAfterInteraction, state.tickCount])
 
   useEffect(() => {
     prevRoundRef.current = local?.round ?? prevRoundRef.current
@@ -192,10 +221,10 @@ export function CFOPanel() {
           <button
             type="button"
             onClick={() => void refreshCFO(true)}
-            disabled={loading}
+            disabled={loading || rateLimited}
             className="rounded-xl border border-stone-300 px-3 py-1.5 text-[11px] font-semibold text-stone-700 transition-colors hover:bg-stone-100 disabled:cursor-not-allowed disabled:border-stone-200 disabled:text-stone-400"
           >
-            {loading ? 'Refreshing…' : 'Refresh'}
+            {loading ? 'Refreshing…' : rateLimited ? 'Cooling down…' : 'Refresh'}
           </button>
           {health && (
             <span

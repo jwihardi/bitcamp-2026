@@ -43,7 +43,7 @@ export function HireAgentModal({ onClose }: Props) {
         prompt: '',
         tokenCount: 0,
         qualityScore: 0,
-        driftRisk: true,
+        driftRisk: false,
         isOffTask: false,
         modelId,
         evalResult: null,
@@ -167,9 +167,9 @@ export function HireAgentModal({ onClose }: Props) {
               })}
             </div>
             <p className="mt-2 text-[11px] leading-snug text-stone-500">
-              Each tick this agent burns{' '}
+              Active prompts burn{' '}
               <span className="text-stone-300">salary + tokens × ${selectedModel.costPerToken}</span>.
-              Starts at ${idleBurn.toLocaleString()}/tick idle (prompt empty).
+              Empty prompts cost $0/tick. A filled {role} agent starts around ${idleBurn.toLocaleString()}/tick plus model compute.
             </p>
           </div>
 
