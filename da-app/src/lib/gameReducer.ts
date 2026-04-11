@@ -12,11 +12,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case 'TICK': {
       const p = action.payload
 
-      const mergedPenalties = [
-        ...p.updatedPenalties,
-        ...(p.newPenalty ? [p.newPenalty] : []),
-      ]
-
       const updatedAgents = state.agents.map((agent) => {
         const update = p.agentUpdates.find((u) => u.id === agent.id)
         return update ? { ...agent, isOffTask: update.isOffTask } : agent
@@ -32,8 +27,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
         burnRate: p.burnRate,
         valuation: p.valuation,
         agents: updatedAgents,
-        pendingPenalties: mergedPenalties,
-        activeChaosEvent: p.newChaosEvent ?? state.activeChaosEvent,
         activeTipCard: state.activeTipCard ?? p.tipCard,
         phase: p.phase,
         round: p.newRound ?? state.round,
