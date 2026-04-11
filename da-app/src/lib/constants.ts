@@ -1,6 +1,7 @@
 import type {
   AgentRole,
   AgentIcon,
+  ChaosEventType,
   FundingRound,
   TipCard,
   Upgrades,
@@ -38,6 +39,7 @@ export const TICK_INTERVALS: readonly [number, number, number, number] = [
 ]
 
 export const DRIFT_CHANCE = 0.15
+export const CHAOS_CHANCE_PER_TICK = 0.04
 
 // ---- Rounds ----
 
@@ -176,6 +178,14 @@ export const TIP_CARDS: TipCard[] = [
     dismissLabel: 'Got it',
   },
   {
+    id: 'first_chaos_event',
+    trigger: 'first_chaos_event',
+    title: 'Chaos happens',
+    body: "Real startups deal with unexpected setbacks constantly. Improve the flagged agent's prompt to clear the penalty.",
+    concept: 'Operational risk',
+    dismissLabel: 'On it',
+  },
+  {
     id: 'entered_burn_mode',
     trigger: 'entered_burn_mode',
     title: "You're in burn mode",
@@ -206,6 +216,14 @@ export const TIP_CARDS: TipCard[] = [
     body: "Series B is about proving you can scale what's working. Your cost per new dollar of ARR should be dropping. That's called improving unit economics.",
     concept: 'Unit economics',
     dismissLabel: 'Got it',
+  },
+  {
+    id: 'first_penalty_cleared',
+    trigger: 'first_penalty_cleared',
+    title: 'Penalty cleared',
+    body: 'Better prompts fixed the damage. This is the core loop — write, observe, improve. Real prompt engineers do the same thing.',
+    concept: 'Iterative improvement',
+    dismissLabel: 'Nice',
   },
   {
     id: 'runway_below_25k',
@@ -287,7 +305,9 @@ export const INITIAL_STATE: GameState = {
   tickCount: 0,
   vcChips: 0,
   upgrades: INITIAL_UPGRADES,
+  activeChaosEvent: null,
   activeTipCard: null,
+  pendingPenalties: [],
 }
 
 // ---- Upgrade costs ----

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useGame } from '../context/GameContext'
 import { ROUNDS } from '../lib/constants'
 import { checkMilestone } from '../lib/tickEngine'
@@ -22,35 +22,41 @@ export function HUD() {
   const { round, arr, runway, users, features, vcChips, phase } = state
 
   const config = ROUNDS[round]
-  const [timeRemaining, setTimeRemaining] = useState(config.timeLimit)
+  const [timerState, setTimerState] = useState(() => ({
+    round,
+    timeRemaining: config.timeLimit,
+  }))
 
-  // Reset timer when round changes
-  const prevRound = useRef(round)
-  useEffect(() => {
-    if (prevRound.current !== round) {
-      setTimeRemaining(ROUNDS[round].timeLimit)
-      prevRound.current = round
-    }
-  }, [round])
-
-  // Countdown
   useEffect(() => {
     if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') return
 
     const id = setInterval(() => {
-      setTimeRemaining(t => {
-        if (t <= 1) {
-          dispatch({ type: 'GAME_OVER' })
-          return 0
+      setTimerState((current) => {
+        if (current.round !== round) {
+          return {
+            round,
+            timeRemaining: ROUNDS[round].timeLimit,
+          }
         }
-        return t - 1
+
+        if (current.timeRemaining <= 1) {
+          dispatch({ type: 'GAME_OVER' })
+          return { ...current, timeRemaining: 0 }
+        }
+
+        return {
+          ...current,
+          timeRemaining: current.timeRemaining - 1,
+        }
       })
     }, 1000)
 
     return () => clearInterval(id)
-  }, [phase, dispatch])
+  }, [phase, round, dispatch])
 
-  // Burn mode trigger
+  const timeRemaining =
+    timerState.round === round ? timerState.timeRemaining : config.timeLimit
+
   useEffect(() => {
     if (phase !== 'playing') return
     const threshold = config.timeLimit * 0.2

@@ -1,5 +1,6 @@
 import type { Action, GameState } from './types'
 import {
+  AGENT_SALARY,
   BASE_RUNWAY,
   BUDGET_PER_TIER,
   INITIAL_STATE,
@@ -19,7 +20,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
 
       return {
         ...state,
-        tickCount: state.tickCount + 1,
+        tickCount: p.tickCount,
         arr: Math.max(0, state.arr + p.arrDelta),
         users: Math.max(0, state.users + p.usersDelta),
         features: Math.max(0, state.features + p.featuresDelta),
@@ -27,21 +28,29 @@ export function gameReducer(state: GameState, action: Action): GameState {
         burnRate: p.burnRate,
         valuation: p.valuation,
         agents: updatedAgents,
+        activeChaosEvent: p.activeChaosEvent,
+        pendingPenalties: p.pendingPenalties,
         activeTipCard: state.activeTipCard ?? p.tipCard,
         phase: p.phase,
         round: p.newRound ?? state.round,
         agentSlots: p.newAgentSlots ?? state.agentSlots,
+        vcChips: state.vcChips + p.vcChipsEarned,
       }
     }
 
     case 'HIRE_AGENT': {
-      return { ...state, agents: [...state.agents, action.agent] }
+      return {
+        ...state,
+        agents: [...state.agents, action.agent],
+        runway: Math.max(0, state.runway - AGENT_SALARY[action.agent.role]),
+      }
     }
 
     case 'FIRE_AGENT': {
       return {
         ...state,
         agents: state.agents.filter((a) => a.id !== action.agentId),
+        phase: state.phase === 'burn_mode' ? 'playing' : state.phase,
       }
     }
 
@@ -103,6 +112,17 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return { ...state, activeTipCard: null }
     }
 
+    case 'SHOW_TIP_CARD': {
+      return {
+        ...state,
+        activeTipCard: state.activeTipCard ?? action.tipCard,
+      }
+    }
+
+    case 'DISMISS_CHAOS_EVENT': {
+      return { ...state, activeChaosEvent: null }
+    }
+
     case 'ENTER_BURN_MODE': {
       if (state.phase === 'burn_mode') return state
       const halved = Math.max(1000, Math.floor(state.tickInterval / 2))
@@ -113,15 +133,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
       if (state.phase !== 'burn_mode') return state
       const restored = TICK_INTERVALS[state.upgrades.fasterTicks]
       return { ...state, phase: 'playing', tickInterval: restored }
-    }
-
-    case 'IPO_TRIGGERED': {
-      return {
-        ...state,
-        phase: 'ipo',
-        valuation: action.valuation,
-        vcChips: state.vcChips + action.chipsEarned,
-      }
     }
 
     case 'GAME_OVER': {

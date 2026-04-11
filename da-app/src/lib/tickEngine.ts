@@ -1,14 +1,24 @@
-import type { Agent, ChaosEvent, ChaosEventType, FundingRound, GameState, Penalty, TipCard } from './types'
+import type {
+  Agent,
+  ChaosEvent,
+  ChaosEventType,
+  FundingRound,
+  GameState,
+  Penalty,
+  TipCard,
+  TickPayload,
+} from './types'
 import {
   AGENT_SALARY,
   BASE_OUTPUT,
+  CHAOS_CHANCE_PER_TICK,
+  CHAOS_EVENT_CONFIGS,
   DRIFT_CHANCE,
   ROUND_ORDER,
   ROUNDS,
   TIP_CARDS,
   VALUATION_MULTIPLE,
 } from './constants'
-import type { TickPayload } from './types'
 
 // ---- Output multiplier ----
 
@@ -16,21 +26,21 @@ export function getOutputMultiplier(qualityScore: number): number {
   return 0.2 + (qualityScore / 100) * 1.8
 }
 
-// ---- Finance burn reduction ----
-
-export function applyFinanceAgents(state: GameState): number {
-  const financeAgents = state.agents.filter(a => a.role === 'finance' && !a.isOffTask)
-  const reductionFactor = financeAgents.reduce((acc, agent) => {
-    return acc * (1 - 0.05 * getOutputMultiplier(agent.qualityScore))
-  }, 1)
-  return state.burnRate * reductionFactor
-}
-
 // ---- Burn per tick ----
 
 export function calcBurnPerTick(state: GameState): number {
   const salaryCost = state.agents.reduce((sum, a) => sum + AGENT_SALARY[a.role], 0)
   return salaryCost * (state.tickInterval / 1000 / 3600)
+}
+
+// ---- Finance burn reduction ----
+
+export function applyFinanceAgents(state: GameState, baseBurn: number): number {
+  const financeAgents = state.agents.filter((a) => a.role === 'finance' && !a.isOffTask)
+  const reductionFactor = financeAgents.reduce((acc, agent) => {
+    return acc * (1 - 0.05 * getOutputMultiplier(agent.qualityScore))
+  }, 1)
+  return baseBurn * reductionFactor
 }
 
 // ---- Drift roll ----
@@ -57,17 +67,116 @@ export function nextRound(current: FundingRound): FundingRound | null {
 
 // ---- Valuation ----
 
-export function computeValuation(state: GameState): number {
-  return Math.floor(state.arr * VALUATION_MULTIPLE)
+export function computeValuation(state: Pick<GameState, 'arr' | 'pendingPenalties'>): number {
+  const hasDueDiligencePenalty = state.pendingPenalties.some(
+    (penalty) => penalty.type === 'due_diligence' && penalty.active,
+  )
+  const multiple = hasDueDiligencePenalty ? 7 : VALUATION_MULTIPLE
+  return Math.floor(state.arr * multiple)
 }
 
 export function awardVcChips(valuation: number): number {
   return Math.floor(valuation / 10_000_000)
 }
 
-// ---- Tip card evaluation ----
+// ---- Chaos and penalties ----
 
-export function evaluateTipTrigger(
+function buildChaosEvent(type: ChaosEventType): ChaosEvent {
+  const config = CHAOS_EVENT_CONFIGS[type]
+  return {
+    type,
+    agentRole: config.agentRole,
+    title: config.title,
+    description: config.description,
+    penaltyDescription: config.penaltyDescription,
+    fixThreshold: config.fixThreshold,
+  }
+}
+
+function buildPenalty(event: ChaosEvent, tickCount: number): Penalty {
+  return {
+    id: `${event.type}-${tickCount}`,
+    type: event.type,
+    agentRole: event.agentRole,
+    description: event.penaltyDescription,
+    active: true,
+    appliedAt: tickCount,
+  }
+}
+
+function refreshPenalties(state: GameState): { pendingPenalties: Penalty[]; clearedPenalty: boolean } {
+  let clearedPenalty = false
+
+  const pendingPenalties = state.pendingPenalties.map((penalty) => {
+    if (!penalty.active) return penalty
+
+    const agent = state.agents.find((candidate) => candidate.role === penalty.agentRole)
+    const threshold = CHAOS_EVENT_CONFIGS[penalty.type].fixThreshold
+    const fixed = agent != null && agent.qualityScore >= threshold
+
+    if (!fixed) return penalty
+
+    clearedPenalty = true
+    return { ...penalty, active: false }
+  })
+
+  return { pendingPenalties, clearedPenalty }
+}
+
+function shouldFireChaosEvent(state: GameState): boolean {
+  if (state.activeChaosEvent !== null) return false
+  if (state.tickCount <= 10) return false
+  return Math.random() < CHAOS_CHANCE_PER_TICK
+}
+
+function rollChaosEvent(state: GameState, tickCount: number): {
+  activeChaosEvent: ChaosEvent | null
+  pendingPenalties: Penalty[]
+} {
+  const refreshed = refreshPenalties(state)
+
+  if (!shouldFireChaosEvent(state)) {
+    return {
+      activeChaosEvent: state.activeChaosEvent,
+      pendingPenalties: refreshed.pendingPenalties,
+    }
+  }
+
+  const chaosTypes = Object.keys(CHAOS_EVENT_CONFIGS) as ChaosEventType[]
+  const type = chaosTypes[Math.floor(Math.random() * chaosTypes.length)]
+  const activeChaosEvent = buildChaosEvent(type)
+
+  return {
+    activeChaosEvent,
+    pendingPenalties: [...refreshed.pendingPenalties, buildPenalty(activeChaosEvent, tickCount)],
+  }
+}
+
+function applyPenaltyDeltas(
+  state: GameState,
+  deltas: { arrDelta: number; usersDelta: number; featuresDelta: number },
+): { arrDelta: number; usersDelta: number; featuresDelta: number } {
+  let arrDelta = deltas.arrDelta
+  let usersDelta = deltas.usersDelta
+  const featuresDelta = deltas.featuresDelta
+
+  for (const penalty of state.pendingPenalties) {
+    if (!penalty.active) continue
+
+    if (penalty.type === 'hallucination') {
+      usersDelta *= 0.8
+      continue
+    }
+
+    if (penalty.type === 'prod_bug') {
+      arrDelta *= 0.75
+    }
+  }
+
+  return { arrDelta, usersDelta, featuresDelta }
+}
+
+function evaluateTipTrigger(
   state: GameState,
   firedTipIds: Set<string>,
 ): TipCard | null {
@@ -76,23 +185,40 @@ export function evaluateTipTrigger(
 
     const shouldFire = (() => {
       switch (tip.trigger) {
-        case 'first_agent_hired':      return state.agents.length === 1
-        case 'first_tick':             return state.tickCount === 1
-        case 'first_low_score':        return state.agents.some(a => a.qualityScore < 40)
-        case 'first_drift':            return state.agents.some(a => a.isOffTask)
-        case 'entered_burn_mode':      return state.phase === 'burn_mode'
-        case 'round_advance_seed':     return state.round === 'seed'
-        case 'round_advance_series_a': return state.round === 'series_a'
-        case 'round_advance_series_b': return state.round === 'series_b'
-        case 'runway_below_25k':       return state.runway < 25_000
-        case 'first_agent_fired':      return false   // set externally via FIRE_AGENT action
-        case 'ipo_triggered':          return state.phase === 'ipo'
-        default:                       return false
+        case 'first_agent_hired':
+          return state.agents.length === 1
+        case 'first_tick':
+          return state.tickCount === 1
+        case 'first_low_score':
+          return state.agents.some((agent) => agent.qualityScore < 40)
+        case 'first_drift':
+          return state.agents.some((agent) => agent.isOffTask)
+        case 'first_chaos_event':
+          return state.activeChaosEvent !== null
+        case 'entered_burn_mode':
+          return state.phase === 'burn_mode'
+        case 'round_advance_seed':
+          return state.round === 'seed'
+        case 'round_advance_series_a':
+          return state.round === 'series_a'
+        case 'round_advance_series_b':
+          return state.round === 'series_b'
+        case 'first_penalty_cleared':
+          return state.pendingPenalties.some((penalty) => !penalty.active)
+        case 'runway_below_25k':
+          return state.runway < 25_000
+        case 'first_agent_fired':
+          return false
+        case 'ipo_triggered':
+          return state.phase === 'ipo'
+        default:
+          return false
       }
     })()
 
     if (shouldFire) return tip
   }
+
   return null
 }
 
@@ -101,107 +227,135 @@ export function evaluateTipTrigger(
 export function resolveTick(
   state: GameState,
   firedTipIds: Set<string>,
-): Omit<TickPayload, 'tipCard'> & { tipCard: TipCard | null; firedTipId: string | null } {
-  const nextTickCount = state.tickCount + 1
+): TickPayload & { firedTipId: string | null } {
+  const tickCount = state.tickCount + 1
 
-  // Reset isOffTask from previous tick
-  const agentsResetOffTask = state.agents.map(a => ({ ...a, isOffTask: false }))
+  // Reset previous off-task indicators before resolving this tick.
+  const resetAgents = state.agents.map((agent) => ({ ...agent, isOffTask: false }))
 
-  // Determine drift
   let arrDelta = 0
   let usersDelta = 0
   let featuresDelta = 0
-  const agentUpdates: { id: string; isOffTask: boolean }[] = []
 
-  const agentsWithDrift = agentsResetOffTask.map(agent => {
-    const offTask = rollDrift(agent)
-    agentUpdates.push({ id: agent.id, isOffTask: offTask })
-    return { ...agent, isOffTask: offTask }
+  for (const agent of resetAgents) {
+    const base = BASE_OUTPUT[agent.role]
+    const multiplier = getOutputMultiplier(agent.qualityScore)
+
+    let agentArr = (base.arr ?? 0) * multiplier
+    const agentUsers = (base.users ?? 0) * multiplier
+    const agentFeatures = (base.features ?? 0) * multiplier
+
+    const salesPenalty = state.pendingPenalties.some(
+      (penalty) => penalty.active && penalty.type === 'competitor',
+    )
+
+    if (salesPenalty && agent.role === 'sales') {
+      agentArr *= 0.7
+    }
+
+    if (agent.role !== 'finance') {
+      arrDelta += agentArr
+    }
+
+    usersDelta += agentUsers
+    featuresDelta += agentFeatures
+  }
+
+  const penaltyAdjusted = applyPenaltyDeltas(state, { arrDelta, usersDelta, featuresDelta })
+  arrDelta = penaltyAdjusted.arrDelta
+  usersDelta = penaltyAdjusted.usersDelta
+  featuresDelta = penaltyAdjusted.featuresDelta
+
+  const agentUpdates = resetAgents.map((agent) => ({
+    id: agent.id,
+    isOffTask: rollDrift(agent),
+  }))
+
+  const agentsAfterTick = resetAgents.map((agent) => {
+    const update = agentUpdates.find((candidate) => candidate.id === agent.id)
+    return update ? { ...agent, isOffTask: update.isOffTask } : agent
   })
 
-  // Compute outputs
-  for (const agent of agentsWithDrift) {
-    if (agent.isOffTask || agent.role === 'finance') continue
-
-    const mult = getOutputMultiplier(agent.qualityScore)
-    const base = BASE_OUTPUT[agent.role]
-
-    arrDelta += (base.arr ?? 0) * mult
-    usersDelta += (base.users ?? 0) * mult
-    featuresDelta += (base.features ?? 0) * mult
-  }
-
-  // Finance agents reduce effective burn
-  const stateWithNewAgents: GameState = {
+  const stateAfterOutputs: GameState = {
     ...state,
-    agents: agentsWithDrift,
-    tickCount: nextTickCount,
+    agents: agentsAfterTick,
+    tickCount,
   }
-  const baseBurn = calcBurnPerTick(stateWithNewAgents)
-  const effectiveBurn = applyFinanceAgents({ ...stateWithNewAgents, burnRate: baseBurn })
+
+  const baseBurn = calcBurnPerTick(stateAfterOutputs)
+  const effectiveBurn = applyFinanceAgents(stateAfterOutputs, baseBurn)
   const runwayDelta = -effectiveBurn
 
-  // Phase and round advancement
-  const newArr = state.arr + arrDelta
-  const newRunway = state.runway + runwayDelta
-  const newUsers = state.users + usersDelta
-  const newFeatures = state.features + featuresDelta
+  const pendingPenaltiesBeforeChaos = refreshPenalties(stateAfterOutputs).pendingPenalties
 
-  let phase = state.phase as GameState['phase']
-  let newRound: GameState['round'] | null = null
-  let newAgentSlots: number | null = null
-
-  const stateForMilestone: GameState = {
-    ...stateWithNewAgents,
-    arr: newArr,
-    users: newUsers,
-    features: newFeatures,
-    runway: newRunway,
+  const nextStateBase: GameState = {
+    ...stateAfterOutputs,
+    arr: state.arr + arrDelta,
+    users: state.users + usersDelta,
+    features: state.features + featuresDelta,
+    runway: state.runway + runwayDelta,
+    burnRate: effectiveBurn,
+    pendingPenalties: pendingPenaltiesBeforeChaos,
   }
 
-  if (newRunway <= 0) {
-    phase = 'game_over'
-  } else if (phase !== 'game_over' && phase !== 'ipo') {
-    const milestoneHit = checkMilestone(stateForMilestone)
-    if (milestoneHit && state.round !== 'ipo') {
-      const next = nextRound(state.round)
-      if (next === 'ipo') {
-        const valuation = computeValuation(stateForMilestone)
-        if (valuation >= 100_000_000) {
-          phase = 'ipo'
-        }
-      } else if (next) {
-        newRound = next
-        newAgentSlots = ROUNDS[next].agentSlotsUnlocked
-        phase = 'playing'
-      }
+  let phase = state.phase
+  let newRound: FundingRound | null = null
+  let newAgentSlots: number | null = null
+
+  const valuation = computeValuation(nextStateBase)
+  let vcChipsEarned = 0
+
+  if (valuation >= 100_000_000) {
+    phase = 'ipo'
+    vcChipsEarned = awardVcChips(valuation)
+  } else if (checkMilestone(nextStateBase)) {
+    const next = nextRound(state.round)
+    if (next && next !== 'ipo') {
+      newRound = next
+      newAgentSlots = ROUNDS[next].agentSlotsUnlocked
+      phase = 'playing'
     }
   }
 
-  const valuation = computeValuation(stateForMilestone)
-
-  // Tip card
-  const stateForTip: GameState = {
-    ...stateForMilestone,
+  const stateAfterMilestone: GameState = {
+    ...nextStateBase,
     phase,
     round: newRound ?? state.round,
-    agents: agentsWithDrift,
+    agentSlots: newAgentSlots ?? state.agentSlots,
   }
+
+  const chaosResolution = rollChaosEvent(stateAfterMilestone, tickCount)
+
+  const stateForTip: GameState = {
+    ...stateAfterMilestone,
+    activeChaosEvent: chaosResolution.activeChaosEvent,
+    pendingPenalties: chaosResolution.pendingPenalties,
+  }
+
   const tipCard = evaluateTipTrigger(stateForTip, firedTipIds)
   const firedTipId = tipCard?.id ?? null
 
+  if (stateForTip.runway <= 0) {
+    phase = 'game_over'
+    vcChipsEarned = 0
+  }
+
   return {
+    tickCount,
     arrDelta,
     usersDelta,
     featuresDelta,
     runwayDelta,
-    burnRate: baseBurn,
+    burnRate: effectiveBurn,
     agentUpdates,
+    activeChaosEvent: chaosResolution.activeChaosEvent,
+    pendingPenalties: chaosResolution.pendingPenalties,
     tipCard,
-    firedTipId,
     phase,
     newRound,
     newAgentSlots,
     valuation,
+    vcChipsEarned,
+    firedTipId,
   }
 }

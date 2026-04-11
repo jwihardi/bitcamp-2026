@@ -1,7 +1,6 @@
 'use client'
 
 import { useGame } from '../context/GameContext'
-import { ROUND_ORDER } from '../lib/constants'
 import { AgentCard } from './AgentCard'
 import { EmptySlot } from './EmptySlot'
 

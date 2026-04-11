@@ -17,9 +17,10 @@ import {
   BUDGET_PER_TIER,
   INITIAL_STATE,
   INITIAL_UPGRADES,
+  TIP_CARDS,
   TICK_INTERVALS,
 } from '@/lib/constants'
-import { awardVcChips, resolveTick } from '@/lib/tickEngine'
+import { resolveTick } from '@/lib/tickEngine'
 
 const LS_CHIPS_KEY = 'vibe_combinator_chips'
 const LS_UPGRADES_KEY = 'vibe_combinator_upgrades'
@@ -94,7 +95,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const stateRef = useRef(state)
   useEffect(() => {
     stateRef.current = state
-  })
+  }, [state])
 
   useEffect(() => {
     const phase = state.phase
@@ -122,15 +123,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
 
       dispatch({ type: 'TICK', payload })
-
-      if (payload.phase === 'ipo') {
-        const chips = awardVcChips(payload.valuation)
-        dispatch({
-          type: 'IPO_TRIGGERED',
-          valuation: payload.valuation,
-          chipsEarned: chips,
-        })
-      }
     }
 
     const id = setInterval(tick, state.tickInterval)
@@ -144,6 +136,56 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     prevTickCountRef.current = state.tickCount
   }, [state.tickCount])
+
+  const prevAgentCountRef = useRef(state.agents.length)
+  useEffect(() => {
+    const previousCount = prevAgentCountRef.current
+    prevAgentCountRef.current = state.agents.length
+
+    if (state.activeTipCard) return
+    if (previousCount <= state.agents.length) return
+
+    const fireTip = TIP_CARDS.find((tip) => tip.id === 'first_agent_fired')
+    if (!fireTip || firedTipIdsRef.current.has(fireTip.id)) return
+
+    firedTipIdsRef.current.add(fireTip.id)
+    dispatch({ type: 'SHOW_TIP_CARD', tipCard: fireTip })
+  }, [state.activeTipCard, state.agents.length, dispatch])
+
+  useEffect(() => {
+    if (state.activeTipCard) return
+
+    const firstPendingTip = TIP_CARDS.find((tip) => {
+      if (firedTipIdsRef.current.has(tip.id)) return false
+
+      switch (tip.trigger) {
+        case 'first_agent_hired':
+          return state.agents.length === 1
+        case 'first_low_score':
+          return state.agents.some((agent) => agent.qualityScore < 40)
+        case 'first_chaos_event':
+          return state.activeChaosEvent !== null
+        case 'entered_burn_mode':
+          return state.phase === 'burn_mode'
+        case 'first_penalty_cleared':
+          return state.pendingPenalties.some((penalty) => !penalty.active)
+        default:
+          return false
+      }
+    })
+
+    if (!firstPendingTip) return
+
+    firedTipIdsRef.current.add(firstPendingTip.id)
+    dispatch({ type: 'SHOW_TIP_CARD', tipCard: firstPendingTip })
+  }, [
+    state.activeChaosEvent,
+    state.activeTipCard,
+    state.agents,
+    state.phase,
+    state.pendingPenalties,
+    dispatch,
+  ])
 
   return (
     <GameContext.Provider

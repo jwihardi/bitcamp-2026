@@ -28,10 +28,12 @@ export type TipTrigger =
   | 'first_tick'
   | 'first_low_score'
   | 'first_drift'
+  | 'first_chaos_event'
   | 'entered_burn_mode'
   | 'round_advance_seed'
   | 'round_advance_series_a'
   | 'round_advance_series_b'
+  | 'first_penalty_cleared'
   | 'runway_below_25k'
   | 'first_agent_fired'
   | 'ipo_triggered'
@@ -57,6 +59,24 @@ export type TipCard = {
   body: string
   concept?: string
   dismissLabel: string
+}
+
+export type ChaosEvent = {
+  type: ChaosEventType
+  agentRole: AgentRole
+  title: string
+  description: string
+  penaltyDescription: string
+  fixThreshold: number
+}
+
+export type Penalty = {
+  id: string
+  type: ChaosEventType
+  agentRole: AgentRole
+  description: string
+  active: boolean
+  appliedAt: number
 }
 
 export type Upgrades = {
@@ -85,21 +105,27 @@ export type GameState = {
   vcChips: number
   upgrades: Upgrades
 
+  activeChaosEvent: ChaosEvent | null
   activeTipCard: TipCard | null
+  pendingPenalties: Penalty[]
 }
 
 export type TickPayload = {
+  tickCount: number
   arrDelta: number
   usersDelta: number
   featuresDelta: number
   runwayDelta: number
   burnRate: number
   agentUpdates: { id: string; isOffTask: boolean }[]
+  activeChaosEvent: ChaosEvent | null
+  pendingPenalties: Penalty[]
   tipCard: TipCard | null
   phase: GamePhase
   newRound: FundingRound | null
   newAgentSlots: number | null
   valuation: number
+  vcChipsEarned: number
 }
 
 export type Action =
@@ -121,11 +147,11 @@ export type Action =
       score: number
       cachedPromptText: string
     }
+  | { type: 'SHOW_TIP_CARD'; tipCard: TipCard }
   | { type: 'DISMISS_CHAOS_EVENT' }
   | { type: 'DISMISS_TIP_CARD' }
   | { type: 'ENTER_BURN_MODE' }
   | { type: 'EXIT_BURN_MODE' }
-  | { type: 'IPO_TRIGGERED'; valuation: number; chipsEarned: number }
   | { type: 'GAME_OVER' }
   | { type: 'NEW_RUN' }
   | {
