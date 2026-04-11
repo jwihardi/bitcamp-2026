@@ -1,0 +1,144 @@
+'use client'
+
+import { useState } from 'react'
+import type { AgentIcon, AgentRole } from '../lib/types'
+import { useGame } from '../context/GameContext'
+import { AGENT_ICONS, ROLE_COLORS } from '../lib/constants'
+
+type Props = { onClose: () => void }
+
+const ROLES: AgentRole[] = ['sales', 'marketing', 'engineering', 'finance']
+
+export function HireAgentModal({ onClose }: Props) {
+  const { dispatch } = useGame()
+  const [role, setRole] = useState<AgentRole>('sales')
+  const [icon, setIcon] = useState<AgentIcon>('robot')
+  const [name, setName] = useState('')
+
+  function handleHire(e: React.FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+
+    dispatch({
+      type: 'HIRE_AGENT',
+      agent: {
+        id: crypto.randomUUID(),
+        name: name.trim(),
+        icon,
+        role,
+        prompt: '',
+        tokenCount: 0,
+        qualityScore: 0,
+        qualityCached: false,
+        cachedPromptText: '',
+        driftRisk: true,
+        isOffTask: false,
+      },
+    })
+
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      {/* Backdrop */}
+      <div
+        className="absolute inset-0 bg-stone-950/70"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+
+      {/* Modal card */}
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-stone-950 p-6 text-stone-50 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold">Hire an agent</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full p-1 text-stone-400 transition-colors hover:text-stone-100"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form onSubmit={handleHire} className="mt-6 space-y-5">
+          {/* Role */}
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-stone-400">Role</p>
+            <div className="flex flex-wrap gap-2">
+              {ROLES.map(r => (
+                <button
+                  key={r}
+                  type="button"
+                  onClick={() => setRole(r)}
+                  className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${
+                    role === r
+                      ? ROLE_COLORS[r]
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200'
+                  }`}
+                >
+                  {r.charAt(0).toUpperCase() + r.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Icon */}
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-stone-400">Icon</p>
+            <div className="flex gap-2">
+              {(Object.entries(AGENT_ICONS) as [AgentIcon, string][]).map(([key, emoji]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setIcon(key)}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl transition-colors ${
+                    icon === key
+                      ? 'bg-stone-600 ring-2 ring-amber-300'
+                      : 'bg-stone-800 hover:bg-stone-700'
+                  }`}
+                  aria-label={key}
+                >
+                  {emoji}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Name */}
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-stone-400">Name</p>
+            <input
+              type="text"
+              placeholder="Name your agent"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              autoFocus
+              className="w-full rounded-xl bg-stone-800 px-4 py-2 text-sm text-stone-100 placeholder-stone-500 outline-none ring-1 ring-stone-700 transition focus:ring-amber-300"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex justify-end gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl px-4 py-2 text-sm text-stone-400 transition-colors hover:text-stone-200"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!name.trim()}
+              className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-semibold text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
+            >
+              Hire
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}

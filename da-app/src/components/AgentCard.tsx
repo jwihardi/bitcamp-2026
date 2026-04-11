@@ -3,28 +3,22 @@
 import { useState } from 'react'
 import type { Agent, AgentIcon } from '../lib/types'
 import { useGame } from '../context/GameContext'
-import { AGENT_ICONS, PROMPT_TEMPLATES } from '../lib/constants'
-import { computeHeuristicScore, countTokens, gradeWithClaude } from '../lib/promptGrader'
+import { AGENT_ICONS, ROLE_COLORS } from '../lib/constants'
+import { AgentEditModal } from './AgentEditModal'
 
 type Props = { agent: Agent }
 
-export function AgentCard({ agent }: Props) {
-  const { state, dispatch } = useGame()
-  const [confirmFire, setConfirmFire] = useState(false)
-  const [grading, setGrading] = useState(false)
-  const [gradeError, setGradeError] = useState<string | null>(null)
+function scoreBadgeClass(score: number) {
+  if (score >= 90) return 'bg-purple-100 text-purple-800'
+  if (score >= 70) return 'bg-teal-100 text-teal-800'
+  if (score >= 40) return 'bg-amber-100 text-amber-800'
+  return 'bg-red-100 text-red-800'
+}
 
-  function handlePromptChange(value: string) {
-    const tokenCount = countTokens(value)
-    const qualityScore = computeHeuristicScore(value, agent.role)
-    dispatch({
-      type: 'UPDATE_PROMPT',
-      agentId: agent.id,
-      prompt: value,
-      tokenCount,
-      qualityScore,
-    })
-  }
+export function AgentCard({ agent }: Props) {
+  const { dispatch } = useGame()
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmFire, setConfirmFire] = useState(false)
 
   function handleNameChange(value: string) {
     dispatch({ type: 'UPDATE_AGENT_NAME', agentId: agent.id, name: value })
@@ -34,107 +28,120 @@ export function AgentCard({ agent }: Props) {
     dispatch({ type: 'UPDATE_AGENT_ICON', agentId: agent.id, icon })
   }
 
-  async function handleGradeWithAI() {
-    setGrading(true)
-    setGradeError(null)
-    try {
-      const result = await gradeWithClaude(agent.prompt, agent.role)
-      dispatch({
-        type: 'GRADE_AGENT_AI',
-        agentId: agent.id,
-        score: result.score,
-        cachedPromptText: agent.prompt,
-      })
-    } catch {
-      setGradeError('Grade failed — retry?')
-    } finally {
-      setGrading(false)
-    }
-  }
-
   function handleFire() {
     dispatch({ type: 'FIRE_AGENT', agentId: agent.id })
     setConfirmFire(false)
   }
 
-  function useTemplate() {
-    const template = PROMPT_TEMPLATES[agent.role]
-    handlePromptChange(template)
-  }
+  const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
+  const hasPrompt = agent.prompt.trim().length > 0
 
   return (
-    <article>
-      {/* Icon picker */}
-      <div>
-        {(Object.entries(AGENT_ICONS) as [AgentIcon, string][]).map(([key, emoji]) => (
-          <label key={key}>
+    <>
+      <article
+        className={`rounded-2xl border bg-white p-4 shadow-sm transition-colors ${
+          agent.isOffTask ? 'border-red-300' : 'border-stone-200'
+        }`}
+      >
+        {/* Top row: icon picker + name + role badge */}
+        <div className="flex items-start gap-3">
+          {/* Icon picker */}
+          <div className="flex flex-wrap gap-1">
+            {(Object.entries(AGENT_ICONS) as [AgentIcon, string][]).map(([key, emoji]) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => handleIconChange(key)}
+                className={`flex h-8 w-8 items-center justify-center rounded-lg text-base transition-colors ${
+                  agent.icon === key
+                    ? 'bg-stone-200 ring-2 ring-amber-400'
+                    : 'bg-stone-100 hover:bg-stone-200'
+                }`}
+                aria-label={key}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+
+          {/* Name + role */}
+          <div className="min-w-0 flex-1">
             <input
-              type="radio"
-              name={`icon-${agent.id}`}
-              value={key}
-              checked={agent.icon === key}
-              onChange={() => handleIconChange(key)}
+              type="text"
+              value={agent.name}
+              onChange={e => handleNameChange(e.target.value)}
+              className="w-full truncate rounded-lg bg-transparent px-1 py-0.5 text-sm font-semibold text-stone-800 outline-none ring-stone-300 transition hover:bg-stone-100 focus:bg-stone-100 focus:ring-1"
+              placeholder="Agent name"
             />
-            {emoji}
-          </label>
-        ))}
-      </div>
-
-      {/* Name */}
-      <input
-        type="text"
-        value={agent.name}
-        onChange={e => handleNameChange(e.target.value)}
-        placeholder="Agent name"
-      />
-
-      {/* Role badge */}
-      <span>{agent.role}</span>
-
-      {/* Quality score */}
-      <span>
-        {agent.qualityScore}/100
-        {agent.qualityCached && ' (AI graded)'}
-        {agent.driftRisk && ' ⚠ Drift risk'}
-      </span>
-
-      {/* Token count */}
-      <span>{agent.tokenCount} tokens</span>
-
-      {/* Off-task indicator */}
-      {agent.isOffTask && (
-        <p>{agent.name} went off-task this tick — no output</p>
-      )}
-
-      {/* Prompt textarea */}
-      <textarea
-        value={agent.prompt}
-        onChange={e => handlePromptChange(e.target.value)}
-        placeholder={`Tell your ${agent.role} agent what to do...`}
-        rows={4}
-      />
-
-      {/* Template button (prestige upgrade) */}
-      {state.upgrades.promptTemplates && (
-        <button type="button" onClick={useTemplate}>Use template</button>
-      )}
-
-      {/* Grade with AI */}
-      <button type="button" onClick={handleGradeWithAI} disabled={grading}>
-        {grading ? 'Grading...' : agent.qualityCached ? 'Graded ✓ (re-grade)' : 'Grade with AI ✦'}
-      </button>
-      {gradeError && <span>{gradeError}</span>}
-
-      {/* Fire button */}
-      {!confirmFire ? (
-        <button type="button" onClick={() => setConfirmFire(true)}>Fire</button>
-      ) : (
-        <div>
-          <span>Fire {agent.name}? Their slot opens immediately.</span>
-          <button type="button" onClick={handleFire}>Confirm</button>
-          <button type="button" onClick={() => setConfirmFire(false)}>Cancel</button>
+            <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ROLE_COLORS[agent.role]}`}>
+              {roleName}
+            </span>
+          </div>
         </div>
-      )}
-    </article>
+
+        {/* Score + token row */}
+        <div className="mt-3 flex items-center gap-2">
+          <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadgeClass(agent.qualityScore)}`}>
+            {agent.qualityScore}/100
+            {agent.driftRisk && ' ⚠'}
+            {agent.qualityCached && ' ✦'}
+          </span>
+          <span className="text-xs text-stone-400">
+            {agent.tokenCount} tokens
+          </span>
+          {!hasPrompt && (
+            <span className="text-xs text-red-400">No prompt yet</span>
+          )}
+        </div>
+
+        {/* Off-task banner */}
+        {agent.isOffTask && (
+          <p className="mt-2 rounded-lg bg-red-50 px-3 py-1.5 text-xs text-red-600">
+            {agent.name} went off-task this tick — no output
+          </p>
+        )}
+
+        {/* Actions row */}
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setEditOpen(true)}
+            className="rounded-xl bg-stone-100 px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors hover:bg-stone-200"
+          >
+            Edit prompt
+          </button>
+
+          {!confirmFire ? (
+            <button
+              type="button"
+              onClick={() => setConfirmFire(true)}
+              className="rounded-xl px-3 py-1.5 text-xs text-stone-400 transition-colors hover:text-red-500"
+            >
+              Fire
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-stone-500">Sure?</span>
+              <button
+                type="button"
+                onClick={handleFire}
+                className="rounded-xl bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
+              >
+                Yes, fire
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmFire(false)}
+                className="rounded-xl px-2 py-1.5 text-xs text-stone-400 hover:text-stone-600"
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+      </article>
+
+      {editOpen && <AgentEditModal agent={agent} onClose={() => setEditOpen(false)} />}
+    </>
   )
 }
