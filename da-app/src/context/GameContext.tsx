@@ -2,20 +2,24 @@
 
 import {
   createContext,
-  useContext,
-  useReducer,
-  useEffect,
-  useRef,
   useCallback,
-  type ReactNode,
+  useContext,
+  useEffect,
+  useReducer,
+  useRef,
   type Dispatch,
+  type ReactNode,
 } from 'react'
-import type { Action, GameState } from '../lib/types'
-import { gameReducer } from '../lib/gameReducer'
-import { INITIAL_STATE, INITIAL_UPGRADES, BASE_RUNWAY, BUDGET_PER_TIER, TICK_INTERVALS } from '../lib/constants'
-import { resolveTick, awardVcChips } from '../lib/tickEngine'
-
-// ---- Persistence helpers ----
+import type { Action, GameState } from '@/lib/types'
+import { gameReducer } from '@/lib/gameReducer'
+import {
+  BASE_RUNWAY,
+  BUDGET_PER_TIER,
+  INITIAL_STATE,
+  INITIAL_UPGRADES,
+  TICK_INTERVALS,
+} from '@/lib/constants'
+import { awardVcChips, resolveTick } from '@/lib/tickEngine'
 
 const LS_CHIPS_KEY = 'vibe_combinator_chips'
 const LS_UPGRADES_KEY = 'vibe_combinator_upgrades'
@@ -25,21 +29,28 @@ function loadPersistedState(): Pick<GameState, 'vcChips' | 'upgrades'> {
     return { vcChips: 0, upgrades: INITIAL_UPGRADES }
   }
   try {
-    const chips = JSON.parse(localStorage.getItem(LS_CHIPS_KEY) ?? '0') as number
-    const upgrades = JSON.parse(localStorage.getItem(LS_UPGRADES_KEY) ?? 'null') ?? INITIAL_UPGRADES
-    return { vcChips: chips, upgrades }
+    const rawChips = localStorage.getItem(LS_CHIPS_KEY)
+    const rawUpgrades = localStorage.getItem(LS_UPGRADES_KEY)
+    const vcChips = rawChips ? (JSON.parse(rawChips) as number) : 0
+    const upgrades = rawUpgrades
+      ? (JSON.parse(rawUpgrades) as GameState['upgrades'])
+      : INITIAL_UPGRADES
+    return { vcChips, upgrades }
   } catch {
     return { vcChips: 0, upgrades: INITIAL_UPGRADES }
   }
 }
 
-function persistState(state: GameState) {
+function persistCarryOver(
+  vcChips: number,
+  upgrades: GameState['upgrades'],
+) {
   if (typeof window === 'undefined') return
   try {
-    localStorage.setItem(LS_CHIPS_KEY, JSON.stringify(state.vcChips))
-    localStorage.setItem(LS_UPGRADES_KEY, JSON.stringify(state.upgrades))
+    localStorage.setItem(LS_CHIPS_KEY, JSON.stringify(vcChips))
+    localStorage.setItem(LS_UPGRADES_KEY, JSON.stringify(upgrades))
   } catch {
-    // Storage quota exceeded or private browsing — ignore
+    // Quota exceeded or private browsing — ignore
   }
 }
 
@@ -54,45 +65,42 @@ function buildInitialState(): GameState {
   }
 }
 
-// ---- Context types ----
-
 type GameContextValue = {
   state: GameState
   dispatch: Dispatch<Action>
-  /** IDs of tip cards already shown this run — read-only reference */
-  firedTipIds: Set<string>
-  /** Call to mark a tip as fired (used by TickEngine after evaluating) */
   markTipFired: (id: string) => void
+  hasFiredTip: (id: string) => boolean
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
 
-// ---- Provider ----
-
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, undefined, buildInitialState)
 
-  // Fired tip IDs live outside the reducer (UI-only, reset on NEW_RUN)
   const firedTipIdsRef = useRef<Set<string>>(new Set())
 
   const markTipFired = useCallback((id: string) => {
     firedTipIdsRef.current.add(id)
   }, [])
 
-  // Persist carry-over values whenever they change
+  const hasFiredTip = useCallback((id: string) => {
+    return firedTipIdsRef.current.has(id)
+  }, [])
+
   useEffect(() => {
-    persistState(state)
+    persistCarryOver(state.vcChips, state.upgrades)
   }, [state.vcChips, state.upgrades])
 
-  // ---- Tick engine ----
-
-  // Use a ref so the interval callback always sees fresh state
   const stateRef = useRef(state)
-  stateRef.current = state
+  useEffect(() => {
+    stateRef.current = state
+  })
 
   useEffect(() => {
     const phase = state.phase
-    if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') return
+    if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') {
+      return
+    }
 
     const tick = () => {
       const current = stateRef.current
@@ -100,52 +108,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
         current.phase === 'game_over' ||
         current.phase === 'ipo' ||
         current.phase === 'prestige_shop'
-      ) return
-
-      const result = resolveTick(current, firedTipIdsRef.current)
-
-      // Mark tip as fired before dispatching so it doesn't re-trigger
-      if (result.firedTipId) {
-        firedTipIdsRef.current.add(result.firedTipId)
+      ) {
+        return
       }
 
-      const { firedTipId: _ignored, ...payload } = result
+      const { firedTipId, ...payload } = resolveTick(
+        current,
+        firedTipIdsRef.current,
+      )
+
+      if (firedTipId) {
+        firedTipIdsRef.current.add(firedTipId)
+      }
 
       dispatch({ type: 'TICK', payload })
 
-      // IPO check after tick resolves
       if (payload.phase === 'ipo') {
         const chips = awardVcChips(payload.valuation)
-        dispatch({ type: 'IPO_TRIGGERED', valuation: payload.valuation, chipsEarned: chips })
+        dispatch({
+          type: 'IPO_TRIGGERED',
+          valuation: payload.valuation,
+          chipsEarned: chips,
+        })
       }
     }
 
     const id = setInterval(tick, state.tickInterval)
     return () => clearInterval(id)
-    // Re-run when tickInterval or phase changes so the interval is restarted cleanly
   }, [state.tickInterval, state.phase])
 
-  // Reset fired tips on new run
-  const prevPhaseRef = useRef(state.phase)
+  const prevTickCountRef = useRef(state.tickCount)
   useEffect(() => {
-    if (prevPhaseRef.current !== 'game_over' && state.phase === 'game_over') {
-      // keep tips as-is; cleared on NEW_RUN
-    }
-    if (state.tickCount === 0 && prevPhaseRef.current !== 'game_over') {
-      // NEW_RUN resets tickCount to 0 outside of game_over, so reset tips
+    if (state.tickCount === 0 && prevTickCountRef.current !== 0) {
       firedTipIdsRef.current = new Set()
     }
-    prevPhaseRef.current = state.phase
-  }, [state.phase, state.tickCount])
+    prevTickCountRef.current = state.tickCount
+  }, [state.tickCount])
 
   return (
-    <GameContext.Provider value={{ state, dispatch, firedTipIds: firedTipIdsRef.current, markTipFired }}>
+    <GameContext.Provider
+      value={{ state, dispatch, markTipFired, hasFiredTip }}
+    >
       {children}
     </GameContext.Provider>
   )
 }
-
-// ---- Hook ----
 
 export function useGame(): GameContextValue {
   const ctx = useContext(GameContext)

@@ -1,10 +1,27 @@
 export type AgentRole = 'sales' | 'marketing' | 'engineering' | 'finance'
 
-export type AgentIcon = 'robot' | 'briefcase' | 'chart' | 'wrench' | 'lightbulb' | 'rocket'
+export type AgentIcon =
+  | 'robot'
+  | 'briefcase'
+  | 'chart'
+  | 'wrench'
+  | 'lightbulb'
+  | 'rocket'
 
 export type FundingRound = 'pre_seed' | 'seed' | 'series_a' | 'series_b' | 'ipo'
 
-export type GamePhase = 'playing' | 'burn_mode' | 'game_over' | 'ipo' | 'prestige_shop'
+export type GamePhase =
+  | 'playing'
+  | 'burn_mode'
+  | 'game_over'
+  | 'ipo'
+  | 'prestige_shop'
+
+export type ChaosEventType =
+  | 'hallucination'
+  | 'prod_bug'
+  | 'competitor'
+  | 'due_diligence'
 
 export type TipTrigger =
   | 'first_agent_hired'
@@ -28,7 +45,7 @@ export type Agent = {
   tokenCount: number
   qualityScore: number
   qualityCached: boolean
-  cachedPromptText: string   // snapshot of prompt when API grade was fetched
+  cachedPromptText: string
   driftRisk: boolean
   isOffTask: boolean
 }
@@ -71,18 +88,16 @@ export type GameState = {
   activeTipCard: TipCard | null
 }
 
-// ---- Action types ----
-
 export type TickPayload = {
   arrDelta: number
   usersDelta: number
   featuresDelta: number
-  runwayDelta: number       // negative
-  burnRate: number          // updated burn rate
+  runwayDelta: number
+  burnRate: number
   agentUpdates: { id: string; isOffTask: boolean }[]
   tipCard: TipCard | null
-  phase: GamePhase          // computed phase after this tick
-  newRound: FundingRound | null  // non-null when milestone advanced
+  phase: GamePhase
+  newRound: FundingRound | null
   newAgentSlots: number | null
   valuation: number
 }
@@ -91,14 +106,29 @@ export type Action =
   | { type: 'TICK'; payload: TickPayload }
   | { type: 'HIRE_AGENT'; agent: Agent }
   | { type: 'FIRE_AGENT'; agentId: string }
-  | { type: 'UPDATE_PROMPT'; agentId: string; prompt: string; tokenCount: number; qualityScore: number }
+  | {
+      type: 'UPDATE_PROMPT'
+      agentId: string
+      prompt: string
+      tokenCount: number
+      qualityScore: number
+    }
   | { type: 'UPDATE_AGENT_NAME'; agentId: string; name: string }
   | { type: 'UPDATE_AGENT_ICON'; agentId: string; icon: AgentIcon }
-  | { type: 'GRADE_AGENT_AI'; agentId: string; score: number; cachedPromptText: string }
+  | {
+      type: 'GRADE_AGENT_AI'
+      agentId: string
+      score: number
+      cachedPromptText: string
+    }
+  | { type: 'DISMISS_CHAOS_EVENT' }
   | { type: 'DISMISS_TIP_CARD' }
   | { type: 'ENTER_BURN_MODE' }
   | { type: 'EXIT_BURN_MODE' }
   | { type: 'IPO_TRIGGERED'; valuation: number; chipsEarned: number }
   | { type: 'GAME_OVER' }
   | { type: 'NEW_RUN' }
-  | { type: 'BUY_UPGRADE'; upgrade: 'fasterTicks' | 'biggerBudget' | 'promptTemplates' }
+  | {
+      type: 'BUY_UPGRADE'
+      upgrade: 'fasterTicks' | 'biggerBudget' | 'promptTemplates'
+    }

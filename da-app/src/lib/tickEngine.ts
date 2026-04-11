@@ -1,4 +1,4 @@
-import type { Agent, AgentRole, FundingRound, GameState, TipCard } from './types'
+import type { Agent, ChaosEvent, ChaosEventType, FundingRound, GameState, Penalty, TipCard } from './types'
 import {
   AGENT_SALARY,
   BASE_OUTPUT,

@@ -6,17 +6,20 @@ import {
   TICK_INTERVALS,
   UPGRADE_COSTS,
 } from './constants'
-import { computeValuation, awardVcChips } from './tickEngine'
 
 export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'TICK': {
       const p = action.payload
 
-      const updatedAgents = state.agents.map(agent => {
-        const update = p.agentUpdates.find(u => u.id === agent.id)
-        if (!update) return agent
-        return { ...agent, isOffTask: update.isOffTask }
+      const mergedPenalties = [
+        ...p.updatedPenalties,
+        ...(p.newPenalty ? [p.newPenalty] : []),
+      ]
+
+      const updatedAgents = state.agents.map((agent) => {
+        const update = p.agentUpdates.find((u) => u.id === agent.id)
+        return update ? { ...agent, isOffTask: update.isOffTask } : agent
       })
 
       return {
@@ -29,6 +32,8 @@ export function gameReducer(state: GameState, action: Action): GameState {
         burnRate: p.burnRate,
         valuation: p.valuation,
         agents: updatedAgents,
+        pendingPenalties: mergedPenalties,
+        activeChaosEvent: p.newChaosEvent ?? state.activeChaosEvent,
         activeTipCard: state.activeTipCard ?? p.tipCard,
         phase: p.phase,
         round: p.newRound ?? state.round,
@@ -37,44 +42,39 @@ export function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'HIRE_AGENT': {
-      return {
-        ...state,
-        agents: [...state.agents, action.agent],
-      }
+      return { ...state, agents: [...state.agents, action.agent] }
     }
 
     case 'FIRE_AGENT': {
       return {
         ...state,
-        agents: state.agents.filter(a => a.id !== action.agentId),
+        agents: state.agents.filter((a) => a.id !== action.agentId),
       }
     }
 
     case 'UPDATE_PROMPT': {
       return {
         ...state,
-        agents: state.agents.map(a =>
-          a.id !== action.agentId
-            ? a
-            : {
-                ...a,
-                prompt: action.prompt,
-                tokenCount: action.tokenCount,
-                qualityScore: action.qualityScore,
-                driftRisk: action.qualityScore < 40,
-                // Invalidate API cache if prompt diverged by more than 10 chars
-                qualityCached:
-                  Math.abs(action.prompt.length - a.cachedPromptText.length) <= 10 &&
-                  a.qualityCached,
-              },
-        ),
+        agents: state.agents.map((a) => {
+          if (a.id !== action.agentId) return a
+          const divergence = Math.abs(action.prompt.length - a.cachedPromptText.length)
+          const stillCached = a.qualityCached && divergence <= 10
+          return {
+            ...a,
+            prompt: action.prompt,
+            tokenCount: action.tokenCount,
+            qualityScore: action.qualityScore,
+            driftRisk: action.qualityScore < 40,
+            qualityCached: stillCached,
+          }
+        }),
       }
     }
 
     case 'UPDATE_AGENT_NAME': {
       return {
         ...state,
-        agents: state.agents.map(a =>
+        agents: state.agents.map((a) =>
           a.id === action.agentId ? { ...a, name: action.name } : a,
         ),
       }
@@ -83,7 +83,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case 'UPDATE_AGENT_ICON': {
       return {
         ...state,
-        agents: state.agents.map(a =>
+        agents: state.agents.map((a) =>
           a.id === action.agentId ? { ...a, icon: action.icon } : a,
         ),
       }
@@ -92,16 +92,16 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case 'GRADE_AGENT_AI': {
       return {
         ...state,
-        agents: state.agents.map(a =>
-          a.id !== action.agentId
-            ? a
-            : {
+        agents: state.agents.map((a) =>
+          a.id === action.agentId
+            ? {
                 ...a,
                 qualityScore: action.score,
                 qualityCached: true,
                 cachedPromptText: action.cachedPromptText,
                 driftRisk: action.score < 40,
-              },
+              }
+            : a,
         ),
       }
     }
@@ -112,14 +112,14 @@ export function gameReducer(state: GameState, action: Action): GameState {
 
     case 'ENTER_BURN_MODE': {
       if (state.phase === 'burn_mode') return state
-      const halfInterval = Math.max(1000, Math.floor(state.tickInterval / 2))
-      return { ...state, phase: 'burn_mode', tickInterval: halfInterval }
+      const halved = Math.max(1000, Math.floor(state.tickInterval / 2))
+      return { ...state, phase: 'burn_mode', tickInterval: halved }
     }
 
     case 'EXIT_BURN_MODE': {
       if (state.phase !== 'burn_mode') return state
-      const baseInterval = TICK_INTERVALS[state.upgrades.fasterTicks]
-      return { ...state, phase: 'playing', tickInterval: baseInterval }
+      const restored = TICK_INTERVALS[state.upgrades.fasterTicks]
+      return { ...state, phase: 'playing', tickInterval: restored }
     }
 
     case 'IPO_TRIGGERED': {
@@ -136,13 +136,11 @@ export function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'NEW_RUN': {
-      const { upgrades, vcChips } = state
-      const startingRunway = BASE_RUNWAY + upgrades.biggerBudget * BUDGET_PER_TIER
-      const tickInterval = TICK_INTERVALS[upgrades.fasterTicks]
+      const { vcChips, upgrades } = state
       return {
         ...INITIAL_STATE,
-        runway: startingRunway,
-        tickInterval,
+        runway: BASE_RUNWAY + upgrades.biggerBudget * BUDGET_PER_TIER,
+        tickInterval: TICK_INTERVALS[upgrades.fasterTicks],
         vcChips,
         upgrades,
       }
@@ -164,29 +162,29 @@ export function gameReducer(state: GameState, action: Action): GameState {
       }
 
       if (upgrade === 'fasterTicks') {
-        const currentTier = upgrades.fasterTicks
-        if (currentTier >= 3) return state
-        const cost = UPGRADE_COSTS.fasterTicks[currentTier as 0 | 1 | 2]
+        const tier = upgrades.fasterTicks
+        if (tier === 3) return state
+        const cost = UPGRADE_COSTS.fasterTicks[tier]
         if (vcChips < cost) return state
-        const newTier = (currentTier + 1) as 0 | 1 | 2 | 3
+        const nextTier = (tier + 1) as 0 | 1 | 2 | 3
         return {
           ...state,
           vcChips: vcChips - cost,
-          upgrades: { ...upgrades, fasterTicks: newTier },
-          tickInterval: TICK_INTERVALS[newTier],
+          upgrades: { ...upgrades, fasterTicks: nextTier },
+          tickInterval: TICK_INTERVALS[nextTier],
         }
       }
 
       if (upgrade === 'biggerBudget') {
-        const currentTier = upgrades.biggerBudget
-        if (currentTier >= 3) return state
-        const cost = UPGRADE_COSTS.biggerBudget[currentTier as 0 | 1 | 2]
+        const tier = upgrades.biggerBudget
+        if (tier === 3) return state
+        const cost = UPGRADE_COSTS.biggerBudget[tier]
         if (vcChips < cost) return state
-        const newTier = (currentTier + 1) as 0 | 1 | 2 | 3
+        const nextTier = (tier + 1) as 0 | 1 | 2 | 3
         return {
           ...state,
           vcChips: vcChips - cost,
-          upgrades: { ...upgrades, biggerBudget: newTier },
+          upgrades: { ...upgrades, biggerBudget: nextTier },
         }
       }
 
