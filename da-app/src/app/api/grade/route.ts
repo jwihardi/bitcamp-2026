@@ -67,6 +67,10 @@ export async function POST(request: Request) {
     return Response.json({ error: 'Invalid grading payload.' }, { status: 400 })
   }
 
+  if (prompt.length > 2000) {
+    return Response.json({ error: 'Prompt too long (max 2000 characters).' }, { status: 400 })
+  }
+
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',

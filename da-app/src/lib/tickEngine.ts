@@ -129,16 +129,18 @@ function shouldFireChaosEvent(state: GameState): boolean {
   return Math.random() < CHAOS_CHANCE_PER_TICK
 }
 
-function rollChaosEvent(state: GameState, tickCount: number): {
+function rollChaosEvent(
+  state: GameState,
+  tickCount: number,
+  refreshedPenalties: Penalty[],
+): {
   activeChaosEvent: ChaosEvent | null
   pendingPenalties: Penalty[]
 } {
-  const refreshed = refreshPenalties(state)
-
   if (!shouldFireChaosEvent(state)) {
     return {
       activeChaosEvent: state.activeChaosEvent,
-      pendingPenalties: refreshed.pendingPenalties,
+      pendingPenalties: refreshedPenalties,
     }
   }
 
@@ -148,7 +150,7 @@ function rollChaosEvent(state: GameState, tickCount: number): {
 
   return {
     activeChaosEvent,
-    pendingPenalties: [...refreshed.pendingPenalties, buildPenalty(activeChaosEvent, tickCount)],
+    pendingPenalties: [...refreshedPenalties, buildPenalty(activeChaosEvent, tickCount)],
   }
 }
 
@@ -230,14 +232,30 @@ export function resolveTick(
 ): TickPayload & { firedTipId: string | null } {
   const tickCount = state.tickCount + 1
 
-  // Reset previous off-task indicators before resolving this tick.
+  // Reset previous off-task state, then roll drift before computing any output.
   const resetAgents = state.agents.map((agent) => ({ ...agent, isOffTask: false }))
+
+  const agentUpdates = resetAgents.map((agent) => ({
+    id: agent.id,
+    isOffTask: rollDrift(agent),
+  }))
+
+  const agentsThisTick = resetAgents.map((agent) => {
+    const update = agentUpdates.find((u) => u.id === agent.id)
+    return update ? { ...agent, isOffTask: update.isOffTask } : agent
+  })
 
   let arrDelta = 0
   let usersDelta = 0
   let featuresDelta = 0
 
-  for (const agent of resetAgents) {
+  const hasSalesPenalty = state.pendingPenalties.some(
+    (penalty) => penalty.active && penalty.type === 'competitor',
+  )
+
+  for (const agent of agentsThisTick) {
+    if (agent.isOffTask) continue
+
     const base = BASE_OUTPUT[agent.role]
     const multiplier = getOutputMultiplier(agent.qualityScore)
 
@@ -245,11 +263,7 @@ export function resolveTick(
     const agentUsers = (base.users ?? 0) * multiplier
     const agentFeatures = (base.features ?? 0) * multiplier
 
-    const salesPenalty = state.pendingPenalties.some(
-      (penalty) => penalty.active && penalty.type === 'competitor',
-    )
-
-    if (salesPenalty && agent.role === 'sales') {
+    if (hasSalesPenalty && agent.role === 'sales') {
       agentArr *= 0.7
     }
 
@@ -266,19 +280,9 @@ export function resolveTick(
   usersDelta = penaltyAdjusted.usersDelta
   featuresDelta = penaltyAdjusted.featuresDelta
 
-  const agentUpdates = resetAgents.map((agent) => ({
-    id: agent.id,
-    isOffTask: rollDrift(agent),
-  }))
-
-  const agentsAfterTick = resetAgents.map((agent) => {
-    const update = agentUpdates.find((candidate) => candidate.id === agent.id)
-    return update ? { ...agent, isOffTask: update.isOffTask } : agent
-  })
-
   const stateAfterOutputs: GameState = {
     ...state,
-    agents: agentsAfterTick,
+    agents: agentsThisTick,
     tickCount,
   }
 
@@ -324,7 +328,7 @@ export function resolveTick(
     agentSlots: newAgentSlots ?? state.agentSlots,
   }
 
-  const chaosResolution = rollChaosEvent(stateAfterMilestone, tickCount)
+  const chaosResolution = rollChaosEvent(stateAfterMilestone, tickCount, pendingPenaltiesBeforeChaos)
 
   const stateForTip: GameState = {
     ...stateAfterMilestone,

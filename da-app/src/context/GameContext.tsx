@@ -82,8 +82,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, undefined, buildInitialState)
   const [activeTipCard, setActiveTipCard] = useState<TipCard | null>(null)
   const [queuedTipCards, setQueuedTipCards] = useState<TipCard[]>([])
+  const activeTipCardRef = useRef<TipCard | null>(null)
 
   const firedTipIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    activeTipCardRef.current = activeTipCard
+  }, [activeTipCard])
 
   const markTipFired = useCallback((id: string) => {
     firedTipIdsRef.current.add(id)
@@ -100,11 +105,11 @@ export function GameProvider({ children }: { children: ReactNode }) {
     firedTipIdsRef.current.add(tipCard.id)
 
     setQueuedTipCards((current) => {
-      if (activeTipCard?.id === tipCard.id) return current
+      if (activeTipCardRef.current?.id === tipCard.id) return current
       if (current.some((queued) => queued.id === tipCard.id)) return current
       return [...current, tipCard]
     })
-  }, [activeTipCard])
+  }, [])
 
   const dismissTipCard = useCallback(() => {
     setActiveTipCard(null)

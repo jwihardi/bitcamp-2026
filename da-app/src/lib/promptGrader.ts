@@ -86,17 +86,33 @@ export function computeHeuristicScore(prompt: string, role: AgentRole): number {
   return clampScore(score)
 }
 
-export function countPromptCharacterEdits(nextPrompt: string, cachedPromptText: string): number {
-  const maxLength = Math.max(nextPrompt.length, cachedPromptText.length)
-  let edits = 0
+// Bounded Levenshtein edit distance. Returns the true distance up to the
+// threshold (11), after which it short-circuits — enough to decide whether to
+// invalidate a cached grade without iterating over long prompts unnecessarily.
+export function countPromptCharacterEdits(a: string, b: string): number {
+  const THRESHOLD = 10
+  if (Math.abs(a.length - b.length) > THRESHOLD) return THRESHOLD + 1
 
-  for (let index = 0; index < maxLength; index += 1) {
-    if ((nextPrompt[index] ?? '') !== (cachedPromptText[index] ?? '')) {
-      edits += 1
+  const m = a.length
+  const n = b.length
+  let prev = Array.from({ length: n + 1 }, (_, i) => i)
+  let curr = new Array<number>(n + 1)
+
+  for (let i = 1; i <= m; i++) {
+    curr[0] = i
+    let rowMin = i
+    for (let j = 1; j <= n; j++) {
+      curr[j] =
+        a[i - 1] === b[j - 1]
+          ? prev[j - 1]
+          : 1 + Math.min(prev[j], curr[j - 1], prev[j - 1])
+      rowMin = Math.min(rowMin, curr[j])
     }
+    if (rowMin > THRESHOLD) return THRESHOLD + 1
+    ;[prev, curr] = [curr, prev]
   }
 
-  return edits
+  return prev[n]
 }
 
 export function shouldInvalidateCachedGrade(
