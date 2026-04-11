@@ -147,6 +147,8 @@ export type Action =
       cachedPromptText: string
     }
   | { type: 'DISMISS_CHAOS_EVENT' }
+  | { type: 'OPEN_PRESTIGE_SHOP' }
+  | { type: 'CLOSE_PRESTIGE_SHOP' }
   | { type: 'ENTER_BURN_MODE' }
   | { type: 'EXIT_BURN_MODE' }
   | { type: 'GAME_OVER' }

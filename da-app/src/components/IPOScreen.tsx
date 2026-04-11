@@ -2,114 +2,129 @@
 
 import { useState } from 'react'
 import { useGame } from '../context/GameContext'
-import { AGENT_ICONS, UPGRADE_COSTS, TICK_INTERVALS } from '../lib/constants'
+import { AGENT_ICONS, ROUNDS } from '../lib/constants'
+import { PrestigeShop } from './PrestigeShop'
+
+const IPO_FLAVOR_LINES = [
+  'Your lean team and sharp prompts made all the difference.',
+  'Turns out crisp prompts compound better than headcount.',
+  'Investors loved the margins. Customers loved the product enough.',
+  'You shipped just enough chaos management to look inevitable.',
+]
+
+function fmtMoney(value: number) {
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(0)}k`
+  return `$${value.toFixed(0)}`
+}
 
 export function IPOScreen() {
-  const { state, dispatch } = useGame()
+  const { state } = useGame()
   const [panel, setPanel] = useState<1 | 2 | 3>(1)
 
-  if (state.phase !== 'ipo' && state.phase !== 'prestige_shop') return null
+  if (state.phase === 'prestige_shop') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/70 p-4">
+        <PrestigeShop showClose />
+      </div>
+    )
+  }
 
-  const { valuation, arr, agents, vcChips, upgrades } = state
+  if (state.phase !== 'ipo') return null
 
+  const { valuation, arr, agents, vcChips, pendingPenalties } = state
   const chipsThisRun = Math.floor(valuation / 10_000_000)
+  const companyName = `${agents[0]?.name ?? 'Your Startup'} & Co.`
+  const chaosEventsSurvived = pendingPenalties.length
+  const completedPath = `${ROUNDS.pre_seed.label} → IPO`
+  const flavorLine =
+    IPO_FLAVOR_LINES[(state.tickCount + chaosEventsSurvived + chipsThisRun) % IPO_FLAVOR_LINES.length]
 
   if (panel === 1) {
     return (
-      <div>
-        <h1>Acquired for ${(valuation / 1_000_000).toFixed(0)}M</h1>
-        <p>Congratulations — you&apos;re going public.</p>
-        <button onClick={() => setPanel(2)}>See your stats →</button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(253,224,71,0.3),_transparent_35%),linear-gradient(180deg,#111827,#0f172a)] p-4">
+        <div className="w-full max-w-3xl rounded-[32px] border border-white/10 bg-white/8 p-8 text-center text-white shadow-2xl backdrop-blur sm:p-12">
+          <p className="text-xs uppercase tracking-[0.4em] text-amber-200">Acquisition</p>
+          <h1 className="mt-4 text-4xl font-semibold sm:text-6xl">
+            Acquired for {fmtMoney(valuation)}
+          </h1>
+          <p className="mt-4 text-lg text-stone-200">Congratulations — you&apos;re going public.</p>
+          <p className="mt-3 text-sm text-stone-300">{flavorLine}</p>
+          <button
+            type="button"
+            onClick={() => setPanel(2)}
+            className="mt-8 rounded-2xl bg-amber-300 px-5 py-3 text-sm font-semibold text-stone-950"
+          >
+            See your stats →
+          </button>
+        </div>
       </div>
     )
   }
 
   if (panel === 2) {
     return (
-      <div>
-        <h2>{agents[0]?.name ?? 'Your'} &amp; Co.</h2>
-        <p>Final valuation: ${(valuation / 1_000_000).toFixed(1)}M</p>
-        <p>Peak ARR: ${(arr / 1_000_000).toFixed(1)}M</p>
-        <ul>
-          {agents.map(a => (
-            <li key={a.id}>{AGENT_ICONS[a.icon]} {a.name} — {a.role}</li>
-          ))}
-        </ul>
-        <p>VC chips earned this run: +{chipsThisRun}</p>
-        <p>Total VC chips: {vcChips}</p>
-        <button onClick={() => setPanel(3)}>Claim chips and upgrade →</button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/85 p-4">
+        <div className="w-full max-w-2xl rounded-[32px] bg-white p-6 text-stone-950 shadow-2xl sm:p-8">
+          <p className="text-xs uppercase tracking-[0.35em] text-stone-400">Result Card</p>
+          <h2 className="mt-3 text-3xl font-semibold">{companyName}</h2>
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl bg-stone-100 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Final valuation</p>
+              <p className="mt-2 text-2xl font-semibold">{fmtMoney(valuation)}</p>
+            </div>
+            <div className="rounded-2xl bg-stone-100 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Peak ARR</p>
+              <p className="mt-2 text-2xl font-semibold">{fmtMoney(arr)}</p>
+            </div>
+            <div className="rounded-2xl bg-stone-100 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Chaos events survived</p>
+              <p className="mt-2 text-2xl font-semibold">{chaosEventsSurvived}</p>
+            </div>
+            <div className="rounded-2xl bg-stone-100 p-4">
+              <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Rounds completed</p>
+              <p className="mt-2 text-2xl font-semibold">{completedPath}</p>
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-stone-200 p-4">
+            <p className="text-xs uppercase tracking-[0.2em] text-stone-500">Agents</p>
+            <ul className="mt-3 space-y-2 text-sm text-stone-700">
+              {agents.map((agent) => (
+                <li key={agent.id} className="flex items-center justify-between gap-3">
+                  <span>
+                    {AGENT_ICONS[agent.icon]} {agent.name}
+                  </span>
+                  <span className="capitalize text-stone-500">{agent.role}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm">
+            <p>VC chips earned this run: +{chipsThisRun} chips</p>
+            <p>{vcChips} chips total</p>
+          </div>
+          <p className="mt-6 text-xs text-stone-400">Vibe Combinator · Bitcamp 2026</p>
+
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setPanel(3)}
+              className="rounded-2xl bg-stone-950 px-5 py-3 text-sm font-semibold text-white"
+            >
+              Claim chips and upgrade →
+            </button>
+          </div>
+        </div>
       </div>
     )
   }
 
-  // Panel 3: Chip shop
-  const fasterTicksTier = upgrades.fasterTicks
-  const biggerBudgetTier = upgrades.biggerBudget
-
-  const fasterTicksCost = fasterTicksTier < 3 ? UPGRADE_COSTS.fasterTicks[fasterTicksTier as 0 | 1 | 2] : null
-  const biggerBudgetCost = biggerBudgetTier < 3 ? UPGRADE_COSTS.biggerBudget[biggerBudgetTier as 0 | 1 | 2] : null
-  const templatesCost = !upgrades.promptTemplates ? UPGRADE_COSTS.promptTemplates : null
-
   return (
-    <div>
-      <h2>Chip Shop</h2>
-      <p>You have {vcChips} chips</p>
-
-      <section>
-        <h3>Faster Ticks (Tier {fasterTicksTier}/3)</h3>
-        {fasterTicksTier < 3 ? (
-          <>
-            <p>Next: {TICK_INTERVALS[fasterTicksTier + 1]}ms ticks</p>
-            <p>Cost: {fasterTicksCost} chips</p>
-            <button
-              disabled={vcChips < (fasterTicksCost ?? Infinity)}
-              onClick={() => dispatch({ type: 'BUY_UPGRADE', upgrade: 'fasterTicks' })}
-            >
-              Buy
-            </button>
-          </>
-        ) : (
-          <p>Max tier reached</p>
-        )}
-      </section>
-
-      <section>
-        <h3>Bigger Starting Budget (Tier {biggerBudgetTier}/3)</h3>
-        {biggerBudgetTier < 3 ? (
-          <>
-            <p>Next: +${((biggerBudgetTier + 1) * 25_000).toLocaleString()} starting runway</p>
-            <p>Cost: {biggerBudgetCost} chips</p>
-            <button
-              disabled={vcChips < (biggerBudgetCost ?? Infinity)}
-              onClick={() => dispatch({ type: 'BUY_UPGRADE', upgrade: 'biggerBudget' })}
-            >
-              Buy
-            </button>
-          </>
-        ) : (
-          <p>Max tier reached</p>
-        )}
-      </section>
-
-      <section>
-        <h3>Prompt Templates</h3>
-        {upgrades.promptTemplates ? (
-          <p>Unlocked</p>
-        ) : (
-          <>
-            <p>Adds role-specific starter prompts to every agent card</p>
-            <p>Cost: {templatesCost} chips</p>
-            <button
-              disabled={vcChips < (templatesCost ?? Infinity)}
-              onClick={() => dispatch({ type: 'BUY_UPGRADE', upgrade: 'promptTemplates' })}
-            >
-              Buy
-            </button>
-          </>
-        )}
-      </section>
-
-      <button onClick={() => dispatch({ type: 'NEW_RUN' })}>Start new run →</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/85 p-4">
+      <PrestigeShop showStartNewRun />
     </div>
   )
 }

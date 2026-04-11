@@ -111,6 +111,16 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return { ...state, activeChaosEvent: null }
     }
 
+    case 'OPEN_PRESTIGE_SHOP': {
+      if (state.phase === 'ipo' || state.phase === 'game_over') return state
+      return { ...state, phase: 'prestige_shop' }
+    }
+
+    case 'CLOSE_PRESTIGE_SHOP': {
+      if (state.phase !== 'prestige_shop') return state
+      return { ...state, phase: 'playing', tickInterval: TICK_INTERVALS[state.upgrades.fasterTicks] }
+    }
+
     case 'ENTER_BURN_MODE': {
       if (state.phase === 'burn_mode') return state
       const halved = Math.max(1000, Math.floor(state.tickInterval / 2))

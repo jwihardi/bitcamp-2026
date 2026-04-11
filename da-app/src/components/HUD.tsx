@@ -19,7 +19,7 @@ function fmtTime(seconds: number) {
 
 export function HUD() {
   const { state, dispatch } = useGame()
-  const { round, arr, runway, users, features, vcChips, phase } = state
+  const { round, arr, runway, users, features, vcChips, upgrades, phase } = state
 
   const config = ROUNDS[round]
   const [timerState, setTimerState] = useState(() => ({
@@ -56,6 +56,11 @@ export function HUD() {
 
   const timeRemaining =
     timerState.round === round ? timerState.timeRemaining : config.timeLimit
+  const hasPrestigeAccess =
+    vcChips > 0 ||
+    upgrades.fasterTicks > 0 ||
+    upgrades.biggerBudget > 0 ||
+    upgrades.promptTemplates
 
   useEffect(() => {
     if (phase !== 'playing') return
@@ -88,6 +93,12 @@ export function HUD() {
       <span>Runway: {fmt(runway)}</span>
 
       {vcChips > 0 && <span>VC Chips: {vcChips}</span>}
+
+      {hasPrestigeAccess && phase === 'playing' && (
+        <button type="button" onClick={() => dispatch({ type: 'OPEN_PRESTIGE_SHOP' })}>
+          Chip Shop
+        </button>
+      )}
 
       {phase === 'burn_mode' && <span>⚠ Burn mode active</span>}
     </header>
