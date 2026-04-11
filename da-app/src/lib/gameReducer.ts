@@ -3,7 +3,6 @@ import {
   BASE_RUNWAY,
   BUDGET_PER_TIER,
   INITIAL_STATE,
-  INITIAL_UPGRADES,
   TICK_INTERVALS,
   UPGRADE_COSTS,
 } from './constants'
@@ -13,10 +12,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'TICK': {
       const p = action.payload
-      const allPenalties = [
-        ...p.updatedPenalties,
-        ...(p.newPenalty ? [p.newPenalty] : []),
-      ]
 
       const updatedAgents = state.agents.map(agent => {
         const update = p.agentUpdates.find(u => u.id === agent.id)
@@ -34,8 +29,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
         burnRate: p.burnRate,
         valuation: p.valuation,
         agents: updatedAgents,
-        pendingPenalties: allPenalties,
-        activeChaosEvent: p.newChaosEvent ?? state.activeChaosEvent,
         activeTipCard: state.activeTipCard ?? p.tipCard,
         phase: p.phase,
         round: p.newRound ?? state.round,
@@ -44,13 +37,9 @@ export function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'HIRE_AGENT': {
-      const salary = state.agents.length < state.agentSlots
-        ? 0
-        : 0  // salary deducted on first tick, not on hire
       return {
         ...state,
         agents: [...state.agents, action.agent],
-        runway: state.runway - salary,
       }
     }
 
@@ -58,7 +47,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
       return {
         ...state,
         agents: state.agents.filter(a => a.id !== action.agentId),
-        // Penalties from fired agent's role stay but will auto-clear next tick
       }
     }
 
@@ -118,10 +106,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
       }
     }
 
-    case 'DISMISS_CHAOS_EVENT': {
-      return { ...state, activeChaosEvent: null }
-    }
-
     case 'DISMISS_TIP_CARD': {
       return { ...state, activeTipCard: null }
     }
@@ -134,7 +118,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
 
     case 'EXIT_BURN_MODE': {
       if (state.phase !== 'burn_mode') return state
-      // Restore to the upgrade-based interval (not the halved one)
       const baseInterval = TICK_INTERVALS[state.upgrades.fasterTicks]
       return { ...state, phase: 'playing', tickInterval: baseInterval }
     }
@@ -183,7 +166,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
       if (upgrade === 'fasterTicks') {
         const currentTier = upgrades.fasterTicks
         if (currentTier >= 3) return state
-        const cost = UPGRADE_COSTS.fasterTicks[currentTier]
+        const cost = UPGRADE_COSTS.fasterTicks[currentTier as 0 | 1 | 2]
         if (vcChips < cost) return state
         const newTier = (currentTier + 1) as 0 | 1 | 2 | 3
         return {
@@ -197,7 +180,7 @@ export function gameReducer(state: GameState, action: Action): GameState {
       if (upgrade === 'biggerBudget') {
         const currentTier = upgrades.biggerBudget
         if (currentTier >= 3) return state
-        const cost = UPGRADE_COSTS.biggerBudget[currentTier]
+        const cost = UPGRADE_COSTS.biggerBudget[currentTier as 0 | 1 | 2]
         if (vcChips < cost) return state
         const newTier = (currentTier + 1) as 0 | 1 | 2 | 3
         return {

@@ -1,10 +1,7 @@
-import type { Agent, AgentRole, ChaosEvent, ChaosEventType, GameState, Penalty, TipCard } from './types'
+import type { Agent, AgentRole, FundingRound, GameState, TipCard } from './types'
 import {
   AGENT_SALARY,
   BASE_OUTPUT,
-  CHAOS_CHANCE_PER_TICK,
-  CHAOS_EVENT_CONFIGS,
-  CHAOS_GRACE_TICKS,
   DRIFT_CHANCE,
   ROUND_ORDER,
   ROUNDS,
@@ -43,79 +40,6 @@ export function rollDrift(agent: Agent): boolean {
   return Math.random() < DRIFT_CHANCE
 }
 
-// ---- Chaos event selection ----
-
-function buildChaosEvent(type: ChaosEventType, state: GameState): ChaosEvent | null {
-  const config = CHAOS_EVENT_CONFIGS[type]
-  const agentForRole = state.agents.find(a => a.role === config.agentRole)
-  if (!agentForRole) return null
-
-  return {
-    id: crypto.randomUUID(),
-    type,
-    agentRole: config.agentRole,
-    title: config.title,
-    description: config.description,
-    penaltyDescription: config.penaltyDescription,
-    fixThreshold: config.fixThreshold,
-  }
-}
-
-export function pickChaosEvent(state: GameState): ChaosEvent | null {
-  const candidates: ChaosEventType[] = []
-
-  if (state.agents.find(a => a.role === 'marketing' && a.qualityScore < 60)) {
-    candidates.push('hallucination', 'hallucination', 'hallucination')
-  } else if (state.agents.find(a => a.role === 'marketing')) {
-    candidates.push('hallucination')
-  }
-
-  if (state.agents.find(a => a.role === 'engineering' && a.qualityScore < 55)) {
-    candidates.push('prod_bug', 'prod_bug', 'prod_bug')
-  } else if (state.agents.find(a => a.role === 'engineering')) {
-    candidates.push('prod_bug')
-  }
-
-  if (['series_a', 'series_b', 'ipo'].includes(state.round)) {
-    candidates.push('competitor')
-  }
-
-  if (state.agents.find(a => a.role === 'finance' && a.qualityScore < 50)) {
-    candidates.push('due_diligence', 'due_diligence', 'due_diligence')
-  } else if (state.agents.find(a => a.role === 'finance')) {
-    candidates.push('due_diligence')
-  }
-
-  if (candidates.length === 0) return null
-
-  // Shuffle + try up to 5 times to find a buildable event
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const type = candidates[Math.floor(Math.random() * candidates.length)]
-    const event = buildChaosEvent(type, state)
-    if (event) return event
-  }
-  return null
-}
-
-export function shouldFireChaosEvent(state: GameState): boolean {
-  if (state.activeChaosEvent !== null) return false
-  if (state.tickCount <= CHAOS_GRACE_TICKS) return false
-  return Math.random() < CHAOS_CHANCE_PER_TICK
-}
-
-// ---- Penalty resolution ----
-
-export function resolvePenalties(state: GameState): Penalty[] {
-  return state.pendingPenalties.map(penalty => {
-    const responsibleAgent = state.agents.find(a => a.role === penalty.agentRole)
-    if (!responsibleAgent) return { ...penalty, active: false }
-
-    const config = CHAOS_EVENT_CONFIGS[penalty.type]
-    const fixed = responsibleAgent.qualityScore >= config.fixThreshold
-    return { ...penalty, active: !fixed }
-  })
-}
-
 // ---- Milestone check ----
 
 export function checkMilestone(state: GameState): boolean {
@@ -134,11 +58,7 @@ export function nextRound(current: FundingRound): FundingRound | null {
 // ---- Valuation ----
 
 export function computeValuation(state: GameState): number {
-  const hasDueDiligencePenalty = state.pendingPenalties.some(
-    p => p.type === 'due_diligence' && p.active,
-  )
-  const multiple = hasDueDiligencePenalty ? 7 : VALUATION_MULTIPLE
-  return Math.floor(state.arr * multiple)
+  return Math.floor(state.arr * VALUATION_MULTIPLE)
 }
 
 export function awardVcChips(valuation: number): number {
@@ -160,12 +80,10 @@ export function evaluateTipTrigger(
         case 'first_tick':             return state.tickCount === 1
         case 'first_low_score':        return state.agents.some(a => a.qualityScore < 40)
         case 'first_drift':            return state.agents.some(a => a.isOffTask)
-        case 'first_chaos_event':      return state.activeChaosEvent !== null
         case 'entered_burn_mode':      return state.phase === 'burn_mode'
         case 'round_advance_seed':     return state.round === 'seed'
         case 'round_advance_series_a': return state.round === 'series_a'
         case 'round_advance_series_b': return state.round === 'series_b'
-        case 'first_penalty_cleared':  return state.pendingPenalties.some(p => !p.active)
         case 'runway_below_25k':       return state.runway < 25_000
         case 'first_agent_fired':      return false   // set externally via FIRE_AGENT action
         case 'ipo_triggered':          return state.phase === 'ipo'
@@ -189,49 +107,28 @@ export function resolveTick(
   // Reset isOffTask from previous tick
   const agentsResetOffTask = state.agents.map(a => ({ ...a, isOffTask: false }))
 
-  // Resolve agent outputs
+  // Determine drift
   let arrDelta = 0
   let usersDelta = 0
   let featuresDelta = 0
   const agentUpdates: { id: string; isOffTask: boolean }[] = []
 
-  // First determine drift
   const agentsWithDrift = agentsResetOffTask.map(agent => {
     const offTask = rollDrift(agent)
     agentUpdates.push({ id: agent.id, isOffTask: offTask })
     return { ...agent, isOffTask: offTask }
   })
 
-  // Apply active penalties (snapshot before resolving below)
-  const hasProdBugPenalty = state.pendingPenalties.some(p => p.type === 'prod_bug' && p.active)
-  const hasHallucinationPenalty = state.pendingPenalties.some(p => p.type === 'hallucination' && p.active)
-  const hasCompetitorPenalty = state.pendingPenalties.some(p => p.type === 'competitor' && p.active)
-
-  // Compute raw outputs
+  // Compute outputs
   for (const agent of agentsWithDrift) {
     if (agent.isOffTask || agent.role === 'finance') continue
 
     const mult = getOutputMultiplier(agent.qualityScore)
     const base = BASE_OUTPUT[agent.role]
 
-    let agentArr = (base.arr ?? 0) * mult
-    let agentUsers = (base.users ?? 0) * mult
-    const agentFeatures = (base.features ?? 0) * mult
-
-    // Apply penalties per role
-    if (agent.role === 'engineering' && hasProdBugPenalty) {
-      agentArr *= 0.75
-    }
-    if (agent.role === 'marketing' && hasHallucinationPenalty) {
-      agentUsers *= 0.8
-    }
-    if (agent.role === 'sales' && hasCompetitorPenalty) {
-      agentArr *= 0.7
-    }
-
-    arrDelta += agentArr
-    usersDelta += agentUsers
-    featuresDelta += agentFeatures
+    arrDelta += (base.arr ?? 0) * mult
+    usersDelta += (base.users ?? 0) * mult
+    featuresDelta += (base.features ?? 0) * mult
   }
 
   // Finance agents reduce effective burn
@@ -243,36 +140,6 @@ export function resolveTick(
   const baseBurn = calcBurnPerTick(stateWithNewAgents)
   const effectiveBurn = applyFinanceAgents({ ...stateWithNewAgents, burnRate: baseBurn })
   const runwayDelta = -effectiveBurn
-
-  // Resolve existing penalties
-  const updatedPenalties = resolvePenalties({ ...stateWithNewAgents, arr: state.arr + arrDelta })
-
-  // Chaos event
-  let newChaosEvent: ChaosEvent | null = null
-  let newPenalty: Penalty | null = null
-
-  if (shouldFireChaosEvent({ ...stateWithNewAgents, tickCount: nextTickCount })) {
-    const event = pickChaosEvent(stateWithNewAgents)
-    if (event) {
-      newChaosEvent = event
-
-      // Immediate hit effects
-      if (event.type === 'hallucination') {
-        usersDelta -= state.users * 0.15
-      } else if (event.type === 'prod_bug') {
-        arrDelta -= state.arr * 0.10
-      }
-
-      newPenalty = {
-        id: crypto.randomUUID(),
-        type: event.type,
-        agentRole: event.agentRole,
-        description: event.penaltyDescription,
-        active: true,
-        appliedAt: nextTickCount,
-      }
-    }
-  }
 
   // Phase and round advancement
   const newArr = state.arr + arrDelta
@@ -318,11 +185,6 @@ export function resolveTick(
     ...stateForMilestone,
     phase,
     round: newRound ?? state.round,
-    activeChaosEvent: newChaosEvent ?? state.activeChaosEvent,
-    pendingPenalties: [
-      ...updatedPenalties,
-      ...(newPenalty ? [newPenalty] : []),
-    ],
     agents: agentsWithDrift,
   }
   const tipCard = evaluateTipTrigger(stateForTip, firedTipIds)
@@ -335,9 +197,6 @@ export function resolveTick(
     runwayDelta,
     burnRate: baseBurn,
     agentUpdates,
-    newChaosEvent,
-    newPenalty,
-    updatedPenalties,
     tipCard,
     firedTipId,
     phase,

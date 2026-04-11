@@ -3,7 +3,6 @@
 # Game Design Docs
 @../docs/GAME_STATE.md
 @../docs/TICK_ENGINE.md
-@../docs/CHAOS_EVENTS.md
 @../docs/TIP_CARDS.md
 @../docs/PRESTIGE.md
 @../docs/FUNDING_GATES.md

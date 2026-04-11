@@ -5,7 +5,6 @@ import type {
   TipCard,
   Upgrades,
   GameState,
-  ChaosEventType,
 } from './types'
 
 // ---- Economy ----
@@ -34,8 +33,6 @@ export const DEFAULT_TICK_INTERVAL = 3000
 export const TICK_INTERVALS: [number, number, number, number] = [3000, 2500, 2000, 1500]
 
 export const DRIFT_CHANCE = 0.15
-export const CHAOS_CHANCE_PER_TICK = 0.04
-export const CHAOS_GRACE_TICKS = 10
 
 // ---- Rounds ----
 
@@ -88,47 +85,6 @@ export const ROUND_ORDER: FundingRound[] = [
   'pre_seed', 'seed', 'series_a', 'series_b', 'ipo',
 ]
 
-// ---- Chaos event config ----
-
-export type ChaosEventConfig = {
-  agentRole: AgentRole
-  title: string
-  description: string
-  penaltyDescription: string
-  fixThreshold: number
-}
-
-export const CHAOS_EVENT_CONFIGS: Record<ChaosEventType, ChaosEventConfig> = {
-  hallucination: {
-    agentRole: 'marketing',
-    title: 'Your Marketing agent hallucinated a product feature',
-    description: "They published a blog post promising a feature that doesn't exist. Users are churning.",
-    penaltyDescription: '-20% users per tick until Marketing prompt improves',
-    fixThreshold: 65,
-  },
-  prod_bug: {
-    agentRole: 'engineering',
-    title: 'Engineering shipped a bug to prod',
-    description: 'A critical bug hit production. Customers are cancelling.',
-    penaltyDescription: '-25% ARR per tick from churn until Engineering prompt improves',
-    fixThreshold: 65,
-  },
-  competitor: {
-    agentRole: 'sales',
-    title: 'A competitor just launched a similar product',
-    description: "They're undercutting your pricing. Deals are stalling.",
-    penaltyDescription: '-30% Sales output per tick until Sales prompt is updated',
-    fixThreshold: 70,
-  },
-  due_diligence: {
-    agentRole: 'finance',
-    title: 'Investors audited your Finance agent',
-    description: 'They found your financial projections are vague and unconvincing.',
-    penaltyDescription: 'Valuation multiple reduced to 7x until Finance prompt improves',
-    fixThreshold: 60,
-  },
-}
-
 // ---- Tip cards ----
 
 export const TIP_CARDS: TipCard[] = [
@@ -165,14 +121,6 @@ export const TIP_CARDS: TipCard[] = [
     dismissLabel: 'Got it',
   },
   {
-    id: 'first_chaos_event',
-    trigger: 'first_chaos_event',
-    title: 'Chaos happens',
-    body: "Real startups deal with unexpected setbacks constantly. Improve the flagged agent's prompt to clear the penalty.",
-    concept: 'Operational risk',
-    dismissLabel: 'On it',
-  },
-  {
     id: 'entered_burn_mode',
     trigger: 'entered_burn_mode',
     title: "You're in burn mode",
@@ -203,14 +151,6 @@ export const TIP_CARDS: TipCard[] = [
     body: "Series B is about proving you can scale what's working. Your cost per new dollar of ARR should be dropping. That's called improving unit economics.",
     concept: 'Unit economics',
     dismissLabel: 'Got it',
-  },
-  {
-    id: 'first_penalty_cleared',
-    trigger: 'first_penalty_cleared',
-    title: 'Penalty cleared',
-    body: 'Better prompts fixed the damage. This is the core loop — write, observe, improve. Real prompt engineers do the same thing.',
-    concept: 'Iterative improvement',
-    dismissLabel: 'Nice',
   },
   {
     id: 'runway_below_25k',
@@ -292,9 +232,7 @@ export const INITIAL_STATE: GameState = {
   tickCount: 0,
   vcChips: 0,
   upgrades: INITIAL_UPGRADES,
-  activeChaosEvent: null,
   activeTipCard: null,
-  pendingPenalties: [],
 }
 
 // ---- Upgrade costs ----
