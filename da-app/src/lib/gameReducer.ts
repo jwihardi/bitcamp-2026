@@ -7,6 +7,7 @@ import {
   TICK_INTERVALS,
   UPGRADE_COSTS,
 } from './constants'
+import { shouldInvalidateCachedGrade } from './promptGrader'
 
 function computeImmediateBurnRate(state: GameState): number {
   return state.agents.reduce((sum, agent) => sum + AGENT_SALARY[agent.role], 0)
@@ -77,14 +78,16 @@ export function gameReducer(state: GameState, action: Action): GameState {
         ...state,
         agents: state.agents.map((a) => {
           if (a.id !== action.agentId) return a
-          const divergence = Math.abs(action.prompt.length - a.cachedPromptText.length)
-          const stillCached = a.qualityCached && divergence <= 10
+          const stillCached =
+            a.qualityCached &&
+            !shouldInvalidateCachedGrade(action.prompt, a.cachedPromptText)
+          const qualityScore = stillCached ? a.qualityScore : action.qualityScore
           return {
             ...a,
             prompt: action.prompt,
             tokenCount: action.tokenCount,
-            qualityScore: action.qualityScore,
-            driftRisk: action.qualityScore < 40,
+            qualityScore,
+            driftRisk: qualityScore < 40,
             qualityCached: stillCached,
           }
         }),

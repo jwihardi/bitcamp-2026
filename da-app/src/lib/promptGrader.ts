@@ -6,6 +6,10 @@ export function countTokens(prompt: string): number {
   return prompt.trim().split(/\s+/).filter(Boolean).length
 }
 
+function clampScore(score: number): number {
+  return Math.round(Math.max(0, Math.min(100, score)))
+}
+
 // ---- Heuristic grader ----
 
 function lengthScore(tokenCount: number): number {
@@ -79,7 +83,28 @@ export function computeHeuristicScore(prompt: string, role: AgentRole): number {
     lengthScore(tokenCount) +
     roleKeywordScore(prompt, role) +
     specificityScore(prompt)
-  return Math.round(Math.max(0, Math.min(100, score)))
+  return clampScore(score)
+}
+
+export function countPromptCharacterEdits(nextPrompt: string, cachedPromptText: string): number {
+  const maxLength = Math.max(nextPrompt.length, cachedPromptText.length)
+  let edits = 0
+
+  for (let index = 0; index < maxLength; index += 1) {
+    if ((nextPrompt[index] ?? '') !== (cachedPromptText[index] ?? '')) {
+      edits += 1
+    }
+  }
+
+  return edits
+}
+
+export function shouldInvalidateCachedGrade(
+  nextPrompt: string,
+  cachedPromptText: string,
+): boolean {
+  if (cachedPromptText.length === 0) return true
+  return countPromptCharacterEdits(nextPrompt, cachedPromptText) > 10
 }
 
 // ---- Claude API grader ----
@@ -97,9 +122,23 @@ export async function gradeWithClaude(prompt: string, role: AgentRole): Promise<
   })
 
   if (!response.ok) {
-    throw new Error(`Grade request failed: ${response.status}`)
+    let detail = `Grade request failed: ${response.status}`
+    try {
+      const data = (await response.json()) as { error?: string }
+      if (data.error) {
+        detail = data.error
+      }
+    } catch {
+      // Ignore malformed error bodies and keep the HTTP status message.
+    }
+    throw new Error(detail)
   }
 
-  const data = await response.json()
-  return { score: data.score, explanation: data.explanation }
+  const data = (await response.json()) as Partial<GradeResult>
+
+  if (typeof data.score !== 'number' || typeof data.explanation !== 'string') {
+    throw new Error('Grade response was invalid.')
+  }
+
+  return { score: clampScore(data.score), explanation: data.explanation }
 }
