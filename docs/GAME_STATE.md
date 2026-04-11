@@ -34,6 +34,7 @@ type GameState = {
     fasterTicks: 0 | 1 | 2 | 3    // tier purchased (0 = none)
     biggerBudget: 0 | 1 | 2 | 3
     promptTemplates: boolean
+    unlockedModelIds: ModelId[]   // persists across runs; always contains 'nimbus_1'
   }
 
   // UI state
@@ -55,16 +56,35 @@ type Agent = {
   role: AgentRole
   prompt: string
   tokenCount: number    // computed from prompt on change
-  qualityScore: number  // 0–100, computed by heuristic or cached from API
+  qualityScore: number  // 0–100, computed by heuristic or cached from API (raw, pre-cap)
   qualityCached: boolean // true if score came from Claude API grade
   driftRisk: boolean    // true if qualityScore < 40
   isOffTask: boolean    // true for current tick if drift roll hit
+  modelId: ModelId      // which LLM model this agent runs on
 }
 
 type AgentRole = 'sales' | 'marketing' | 'engineering' | 'finance'
 
 type AgentIcon = 'robot' | 'briefcase' | 'chart' | 'wrench' | 'lightbulb' | 'rocket'
+
+type ModelId = 'nimbus_1' | 'quanta_s' | 'synapse_pro' | 'oracle_ultra'
+
+type Model = {
+  id: ModelId
+  name: string
+  tagline: string
+  description: string
+  costPerToken: number     // dollars added to burn per tick per token
+  qualityCap: number       // clamps effective qualityScore at output resolution
+  prestigeCost: number     // chips, 0 for the default unlocked model
+  unlockedByDefault: boolean
+}
 ```
+
+Agents always carry a `modelId`. The player chooses one in the hire modal (restricted to
+`upgrades.unlockedModelIds`) and can swap it later via the edit modal. The raw
+`qualityScore` stays as-is; the cap is applied when computing output multipliers inside the
+tick engine — see `TICK_ENGINE.md`.
 
 ---
 
@@ -118,6 +138,7 @@ const INITIAL_STATE: GameState = {
     fasterTicks: 0,
     biggerBudget: 0,
     promptTemplates: false,
+    unlockedModelIds: ['nimbus_1'],
   },
   activeChaosEvent: null,
   activeTipCard: null,

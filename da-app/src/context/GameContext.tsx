@@ -37,6 +37,14 @@ function loadPersistedState(): Pick<GameState, 'vcChips' | 'upgrades'> {
     const upgrades = rawUpgrades
       ? (JSON.parse(rawUpgrades) as GameState['upgrades'])
       : INITIAL_UPGRADES
+
+    // Migrate old saves that predate the LLM models feature.
+    if (!Array.isArray(upgrades.unlockedModelIds)) {
+      upgrades.unlockedModelIds = ['nimbus_1']
+    } else if (!upgrades.unlockedModelIds.includes('nimbus_1')) {
+      upgrades.unlockedModelIds = ['nimbus_1', ...upgrades.unlockedModelIds]
+    }
+
     return { vcChips, upgrades }
   } catch {
     return { vcChips: 0, upgrades: INITIAL_UPGRADES }

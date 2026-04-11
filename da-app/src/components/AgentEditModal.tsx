@@ -1,9 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import type { Agent } from '../lib/types'
+import type { Agent, ModelId } from '../lib/types'
 import { useGame } from '../context/GameContext'
-import { AGENT_ICONS, PROMPT_TEMPLATES, ROLE_COLORS } from '../lib/constants'
+import {
+  AGENT_ICONS,
+  AGENT_SALARY,
+  DEFAULT_MODEL_ID,
+  MODELS,
+  PROMPT_TEMPLATES,
+  ROLE_COLORS,
+} from '../lib/constants'
 import { computeHeuristicScore, countTokens, gradeWithClaude } from '../lib/promptGrader'
 
 type Props = { agent: Agent; onClose: () => void }
@@ -63,7 +70,19 @@ export function AgentEditModal({ agent, onClose }: Props) {
     handlePromptChange(template)
   }
 
+  function handleModelChange(nextId: ModelId) {
+    if (nextId === agent.modelId) return
+    dispatch({ type: 'UPDATE_AGENT_MODEL', agentId: agent.id, modelId: nextId })
+  }
+
   const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
+  const currentModel = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
+  const perTickCost =
+    AGENT_SALARY[agent.role] + agent.tokenCount * currentModel.costPerToken
+  const overCap = agent.qualityScore > currentModel.qualityCap
+  const unlockedModels = state.upgrades.unlockedModelIds
+    .map((id) => MODELS[id])
+    .filter((m): m is NonNullable<typeof m> => Boolean(m))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -133,6 +152,37 @@ export function AgentEditModal({ agent, onClose }: Props) {
             Use template
           </button>
         )}
+
+        {/* Model */}
+        <div className="mt-5">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-xs uppercase tracking-[0.2em] text-stone-400">Model</p>
+            <span className="text-xs text-stone-400">
+              ~${perTickCost.toLocaleString()}/tick
+            </span>
+          </div>
+          <select
+            value={agent.modelId}
+            onChange={(e) => handleModelChange(e.target.value as ModelId)}
+            className="w-full rounded-xl bg-stone-800 px-3 py-2 text-sm text-stone-100 outline-none ring-1 ring-stone-700 transition focus:ring-amber-300"
+          >
+            {unlockedModels.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} — ${m.costPerToken}/token · cap {m.qualityCap}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-[11px] leading-snug text-stone-500">
+            Cost formula: <span className="text-stone-300">salary + tokens × ${currentModel.costPerToken}</span>.
+            Effective quality is capped at {currentModel.qualityCap}.
+          </p>
+          {overCap && (
+            <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-1.5 text-[11px] text-amber-300">
+              Your prompt scores {agent.qualityScore} but {currentModel.name} caps at{' '}
+              {currentModel.qualityCap}. Upgrade the model to unlock your prompt&rsquo;s full quality.
+            </p>
+          )}
+        </div>
 
         {/* Footer: grade + done */}
         <div className="mt-5 flex items-center justify-between gap-3">

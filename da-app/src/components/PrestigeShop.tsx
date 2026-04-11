@@ -1,6 +1,6 @@
 'use client'
 
-import { UPGRADE_COSTS, TICK_INTERVALS } from '../lib/constants'
+import { MODELS, UPGRADE_COSTS, TICK_INTERVALS } from '../lib/constants'
 import { useGame } from '../context/GameContext'
 
 type Props = {
@@ -119,6 +119,70 @@ export function PrestigeShop({ showStartNewRun = false, showClose = false }: Pro
             <p className="mt-4 text-sm text-emerald-300">Templates available on agent cards</p>
           )}
         </section>
+      </div>
+
+      {/* Models */}
+      <div className="mt-8">
+        <div className="flex items-end justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-stone-400">LLM Models</p>
+            <h3 className="mt-1 text-lg font-medium text-stone-100">
+              Unlock better models for your agents
+            </h3>
+          </div>
+          <p className="max-w-md text-xs text-stone-400">
+            Models charge per-token every tick: <span className="text-stone-200">salary + tokens × $rate</span>.
+            Each model caps the quality your agents can actually extract from a prompt.
+          </p>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          {Object.values(MODELS)
+            .filter((m) => !m.unlockedByDefault)
+            .map((model) => {
+              const unlocked = upgrades.unlockedModelIds.includes(model.id)
+              const affordable = vcChips >= model.prestigeCost
+              return (
+                <section
+                  key={model.id}
+                  className="rounded-2xl border border-stone-800 bg-stone-900/70 p-5"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-stone-400">
+                        {model.tagline}
+                      </p>
+                      <h3 className="mt-1 text-xl font-medium text-stone-100">{model.name}</h3>
+                    </div>
+                    <div className="text-right text-xs text-stone-400">
+                      <p className="text-stone-200">${model.costPerToken}/token</p>
+                      <p>Cap {model.qualityCap}</p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-sm text-stone-300">{model.description}</p>
+                  {unlocked ? (
+                    <p className="mt-5 text-sm text-emerald-300">Unlocked</p>
+                  ) : (
+                    <>
+                      <p className="mt-4 text-sm text-stone-400">
+                        Cost: {model.prestigeCost} chips
+                      </p>
+                      <button
+                        type="button"
+                        disabled={!affordable}
+                        onClick={() =>
+                          dispatch({ type: 'BUY_UPGRADE', upgrade: 'model', modelId: model.id })
+                        }
+                        className="mt-4 rounded-xl bg-amber-300 px-4 py-2 text-sm font-medium text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-400"
+                      >
+                        Unlock
+                      </button>
+                    </>
+                  )}
+                </section>
+              )
+            })}
+        </div>
       </div>
 
       {showStartNewRun && (

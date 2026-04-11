@@ -3,14 +3,19 @@ import {
   AGENT_SALARY,
   BASE_RUNWAY,
   BUDGET_PER_TIER,
+  DEFAULT_MODEL_ID,
   INITIAL_STATE,
+  MODELS,
   TICK_INTERVALS,
   UPGRADE_COSTS,
 } from './constants'
 import { shouldInvalidateCachedGrade } from './promptGrader'
 
 function computeImmediateBurnRate(state: GameState): number {
-  return state.agents.reduce((sum, agent) => sum + AGENT_SALARY[agent.role], 0)
+  return state.agents.reduce((sum, agent) => {
+    const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
+    return sum + AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+  }, 0)
 }
 
 export function gameReducer(state: GameState, action: Action): GameState {
@@ -112,6 +117,19 @@ export function gameReducer(state: GameState, action: Action): GameState {
       }
     }
 
+    case 'UPDATE_AGENT_MODEL': {
+      if (!MODELS[action.modelId]) return state
+      if (!state.upgrades.unlockedModelIds.includes(action.modelId)) return state
+      const agents = state.agents.map((a) =>
+        a.id === action.agentId ? { ...a, modelId: action.modelId } : a,
+      )
+      return {
+        ...state,
+        agents,
+        burnRate: computeImmediateBurnRate({ ...state, agents }),
+      }
+    }
+
     case 'GRADE_AGENT_AI': {
       return {
         ...state,
@@ -173,6 +191,21 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case 'BUY_UPGRADE': {
       const { upgrade } = action
       const { upgrades, vcChips } = state
+
+      if (upgrade === 'model') {
+        const model = MODELS[action.modelId]
+        if (!model) return state
+        if (upgrades.unlockedModelIds.includes(action.modelId)) return state
+        if (vcChips < model.prestigeCost) return state
+        return {
+          ...state,
+          vcChips: vcChips - model.prestigeCost,
+          upgrades: {
+            ...upgrades,
+            unlockedModelIds: [...upgrades.unlockedModelIds, action.modelId],
+          },
+        }
+      }
 
       if (upgrade === 'promptTemplates') {
         if (upgrades.promptTemplates) return state

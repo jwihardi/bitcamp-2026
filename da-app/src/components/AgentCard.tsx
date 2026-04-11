@@ -3,7 +3,13 @@
 import { useState } from 'react'
 import type { Agent, AgentIcon } from '../lib/types'
 import { useGame } from '../context/GameContext'
-import { AGENT_ICONS, ROLE_COLORS } from '../lib/constants'
+import {
+  AGENT_ICONS,
+  AGENT_SALARY,
+  DEFAULT_MODEL_ID,
+  MODELS,
+  ROLE_COLORS,
+} from '../lib/constants'
 import { AgentEditModal } from './AgentEditModal'
 
 type Props = { agent: Agent }
@@ -35,6 +41,9 @@ export function AgentCard({ agent }: Props) {
 
   const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
   const hasPrompt = agent.prompt.trim().length > 0
+  const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
+  const perTickCost = AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+  const overCap = agent.qualityScore > model.qualityCap
 
   return (
     <>
@@ -80,11 +89,18 @@ export function AgentCard({ agent }: Props) {
         </div>
 
         {/* Score + token row */}
-        <div className="mt-3 flex items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadgeClass(agent.qualityScore)}`}>
             {agent.qualityScore}/100
             {agent.driftRisk && ' ⚠'}
             {agent.qualityCached && ' ✦'}
+            {overCap && ` ↕${model.qualityCap}`}
+          </span>
+          <span
+            className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600"
+            title={`${model.name} — $${model.costPerToken}/token · cap ${model.qualityCap}`}
+          >
+            {model.name}
           </span>
           <span className="text-xs text-stone-400">
             {agent.tokenCount} tokens
@@ -93,6 +109,15 @@ export function AgentCard({ agent }: Props) {
             <span className="text-xs text-red-400">No prompt yet</span>
           )}
         </div>
+
+        {/* Per-tick cost line */}
+        <p className="mt-1 text-[11px] text-stone-400">
+          ~${perTickCost.toLocaleString()}/tick
+          <span className="text-stone-500">
+            {' '}
+            (${AGENT_SALARY[agent.role].toLocaleString()} + {agent.tokenCount} × ${model.costPerToken})
+          </span>
+        </p>
 
         {/* Off-task banner */}
         {agent.isOffTask && (

@@ -1,19 +1,33 @@
 'use client'
 
 import { useState } from 'react'
-import type { AgentIcon, AgentRole } from '../lib/types'
+import type { AgentIcon, AgentRole, ModelId } from '../lib/types'
 import { useGame } from '../context/GameContext'
-import { AGENT_ICONS, ROLE_COLORS } from '../lib/constants'
+import {
+  AGENT_ICONS,
+  AGENT_SALARY,
+  DEFAULT_MODEL_ID,
+  MODELS,
+  ROLE_COLORS,
+} from '../lib/constants'
 
 type Props = { onClose: () => void }
 
 const ROLES: AgentRole[] = ['sales', 'marketing', 'engineering', 'finance']
 
 export function HireAgentModal({ onClose }: Props) {
-  const { dispatch } = useGame()
+  const { state, dispatch } = useGame()
   const [role, setRole] = useState<AgentRole>('sales')
   const [icon, setIcon] = useState<AgentIcon>('robot')
   const [name, setName] = useState('')
+  const [modelId, setModelId] = useState<ModelId>(DEFAULT_MODEL_ID)
+
+  const unlockedModels = state.upgrades.unlockedModelIds
+    .map((id) => MODELS[id])
+    .filter((m): m is NonNullable<typeof m> => Boolean(m))
+
+  const selectedModel = MODELS[modelId] ?? MODELS[DEFAULT_MODEL_ID]
+  const idleBurn = AGENT_SALARY[role]
 
   function handleHire(e: React.FormEvent) {
     e.preventDefault()
@@ -33,6 +47,7 @@ export function HireAgentModal({ onClose }: Props) {
         cachedPromptText: '',
         driftRisk: true,
         isOffTask: false,
+        modelId,
       },
     })
 
@@ -118,6 +133,42 @@ export function HireAgentModal({ onClose }: Props) {
               autoFocus
               className="w-full rounded-xl bg-stone-800 px-4 py-2 text-sm text-stone-100 placeholder-stone-500 outline-none ring-1 ring-stone-700 transition focus:ring-amber-300"
             />
+          </div>
+
+          {/* Model */}
+          <div>
+            <p className="mb-2 text-xs uppercase tracking-[0.2em] text-stone-400">Model</p>
+            <div className="flex flex-col gap-2">
+              {unlockedModels.map((m) => {
+                const selected = modelId === m.id
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setModelId(m.id)}
+                    className={`flex items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition-colors ${
+                      selected
+                        ? 'border-amber-300 bg-stone-800'
+                        : 'border-stone-700 bg-stone-900 hover:border-stone-500'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-stone-100">{m.name}</p>
+                      <p className="truncate text-xs text-stone-400">{m.tagline}</p>
+                    </div>
+                    <div className="shrink-0 text-right text-xs text-stone-300">
+                      <p>${m.costPerToken}/token</p>
+                      <p className="text-stone-500">Cap {m.qualityCap}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+            <p className="mt-2 text-[11px] leading-snug text-stone-500">
+              Each tick this agent burns{' '}
+              <span className="text-stone-300">salary + tokens × ${selectedModel.costPerToken}</span>.
+              Starts at ${idleBurn.toLocaleString()}/tick idle (prompt empty).
+            </p>
           </div>
 
           {/* Actions */}

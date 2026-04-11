@@ -186,6 +186,10 @@ function countTokens(prompt: string): number {
 
 Display the count live next to the textarea: `"47 tokens"`. Color it amber above 100, red above 200.
 
+Token count also drives per-tick model cost — see `PRESTIGE.md#llm-models`. Longer prompts
+literally cost more every tick, which amplifies the "keep it concise" scoring signal with a
+direct economic penalty.
+
 ---
 
 ## Score display

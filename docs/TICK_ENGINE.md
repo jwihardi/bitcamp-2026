@@ -20,9 +20,17 @@ Each tick executes these steps in sequence:
 
 ## Agent output per tick
 
-Each agent produces output based on role and quality score. The quality score acts as a multiplier.
+Each agent produces output based on role and **effective** quality score. The effective score
+is `min(agent.qualityScore, model.qualityCap)` — the agent's model sets a hard ceiling on how
+much quality the prompt can actually deliver. The raw `qualityScore` in state is unchanged;
+the cap is applied here at output-resolution time.
 
 ```ts
+function getEffectiveQualityScore(agent: Agent): number {
+  const model = MODELS[agent.modelId]
+  return Math.min(agent.qualityScore, model.qualityCap)
+}
+
 function getOutputMultiplier(qualityScore: number): number {
   // 0.2x at score 0, 1.0x at score 50, 2.0x at score 100
   return 0.2 + (qualityScore / 100) * 1.8
@@ -36,13 +44,14 @@ const BASE_OUTPUT: Record<AgentRole, { arr?: number; users?: number; features?: 
 }
 ```
 
-Finance agents work differently: instead of producing ARR, they reduce the effective `burnRate` by a multiplier each tick. Apply this before deducting burn.
+Finance agents work differently: instead of producing ARR, they reduce the effective `burnRate` by a multiplier each tick. Apply this before deducting burn. Finance also respects the model quality cap, so a Finance agent on a cheap model cannot trivialize burn.
 
 ```ts
 function applyFinanceAgents(state: GameState): number {
   const financeAgents = state.agents.filter(a => a.role === 'finance' && !a.isOffTask)
   const reductionFactor = financeAgents.reduce((acc, agent) => {
-    return acc * (1 - 0.05 * getOutputMultiplier(agent.qualityScore))
+    const effective = getEffectiveQualityScore(agent)
+    return acc * (1 - 0.05 * getOutputMultiplier(effective))
   }, 1)
   return state.burnRate * reductionFactor
 }
@@ -72,15 +81,27 @@ If an agent goes off-task:
 
 ## Burn calculation
 
+Each tick, every agent burns a fixed role salary **plus** a variable model token cost equal
+to `tokenCount × model.costPerToken`. Longer prompts cost more every tick; bigger models
+amplify the per-token rate. This ties the existing prompt word count directly to real
+mechanical cost and makes the `tokenCount` field load-bearing.
+
 ```ts
 function calcBurnPerTick(state: GameState): number {
-  const salaryCost = state.agents.reduce((sum, a) => sum + AGENT_SALARY[a.role], 0)
+  const salaryCost = state.agents.reduce((sum, a) => {
+    const model = MODELS[a.modelId]
+    return sum + AGENT_SALARY[a.role] + a.tokenCount * model.costPerToken
+  }, 0)
   const baseBurn = salaryCost * (state.tickInterval / 1000 / 3600)  // scale to tick duration
   return baseBurn
 }
 ```
 
 Deduct the result from `state.runway` each tick. If `runway <= 0`, dispatch `GAME_OVER`.
+
+> **Model cost design intent:** a 60-token prompt on the free Nimbus-1 model adds only
+> ~$300/tick over salary; the same prompt on Oracle Ultra adds ~$2,700. Paste-everything
+> players burn out fast. See `PRESTIGE.md#llm-models` for the model tier table.
 
 ---
 

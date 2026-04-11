@@ -23,6 +23,19 @@ export type ChaosEventType =
   | 'competitor'
   | 'due_diligence'
 
+export type ModelId = 'nimbus_1' | 'quanta_s' | 'synapse_pro' | 'oracle_ultra'
+
+export type Model = {
+  id: ModelId
+  name: string
+  tagline: string
+  description: string
+  costPerToken: number
+  qualityCap: number
+  prestigeCost: number
+  unlockedByDefault: boolean
+}
+
 export type TipTrigger =
   | 'first_agent_hired'
   | 'first_tick'
@@ -50,6 +63,7 @@ export type Agent = {
   cachedPromptText: string
   driftRisk: boolean
   isOffTask: boolean
+  modelId: ModelId
 }
 
 export type TipCard = {
@@ -83,6 +97,7 @@ export type Upgrades = {
   fasterTicks: 0 | 1 | 2 | 3
   biggerBudget: 0 | 1 | 2 | 3
   promptTemplates: boolean
+  unlockedModelIds: ModelId[]
 }
 
 export type GameState = {
@@ -140,6 +155,7 @@ export type Action =
     }
   | { type: 'UPDATE_AGENT_NAME'; agentId: string; name: string }
   | { type: 'UPDATE_AGENT_ICON'; agentId: string; icon: AgentIcon }
+  | { type: 'UPDATE_AGENT_MODEL'; agentId: string; modelId: ModelId }
   | {
       type: 'GRADE_AGENT_AI'
       agentId: string
@@ -157,3 +173,4 @@ export type Action =
       type: 'BUY_UPGRADE'
       upgrade: 'fasterTicks' | 'biggerBudget' | 'promptTemplates'
     }
+  | { type: 'BUY_UPGRADE'; upgrade: 'model'; modelId: ModelId }

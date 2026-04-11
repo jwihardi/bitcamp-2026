@@ -3,6 +3,8 @@ import type {
   AgentIcon,
   ChaosEventType,
   FundingRound,
+  Model,
+  ModelId,
   TipCard,
   Upgrades,
   GameState,
@@ -282,10 +284,62 @@ export const ROLE_COLORS: Record<AgentRole, string> = {
 
 // ---- Initial state ----
 
+// ---- LLM Models ----
+
+export const DEFAULT_MODEL_ID: ModelId = 'nimbus_1'
+
+export const MODELS: Record<ModelId, Model> = {
+  nimbus_1: {
+    id: 'nimbus_1',
+    name: 'Nimbus-1',
+    tagline: 'Cheap cycles, tight ceiling.',
+    description:
+      'Your default model. Low per-token cost, capped at 55 quality. Enough to scrape through pre-seed.',
+    costPerToken: 5,
+    qualityCap: 55,
+    prestigeCost: 0,
+    unlockedByDefault: true,
+  },
+  quanta_s: {
+    id: 'quanta_s',
+    name: 'Quanta-S',
+    tagline: 'Mid-tier reasoning.',
+    description:
+      'Solid general-purpose model. ~2.4× the per-token cost of Nimbus, but raises the quality ceiling to 75.',
+    costPerToken: 12,
+    qualityCap: 75,
+    prestigeCost: 3,
+    unlockedByDefault: false,
+  },
+  synapse_pro: {
+    id: 'synapse_pro',
+    name: 'Synapse Pro',
+    tagline: 'Series-A grade.',
+    description:
+      'High ceiling, high burn. Quality cap 90. Long prompts on this model will wreck your runway.',
+    costPerToken: 25,
+    qualityCap: 90,
+    prestigeCost: 7,
+    unlockedByDefault: false,
+  },
+  oracle_ultra: {
+    id: 'oracle_ultra',
+    name: 'Oracle Ultra',
+    tagline: 'IPO-tier cognition.',
+    description:
+      'The frontier. Uncapped quality ceiling. A single 200-token prompt can burn $9k/tick.',
+    costPerToken: 45,
+    qualityCap: 100,
+    prestigeCost: 15,
+    unlockedByDefault: false,
+  },
+}
+
 export const INITIAL_UPGRADES: Upgrades = {
   fasterTicks: 0,
   biggerBudget: 0,
   promptTemplates: false,
+  unlockedModelIds: ['nimbus_1'],
 }
 
 export const INITIAL_STATE: GameState = {

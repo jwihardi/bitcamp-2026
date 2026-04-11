@@ -13,12 +13,30 @@ import {
   BASE_OUTPUT,
   CHAOS_CHANCE_PER_TICK,
   CHAOS_EVENT_CONFIGS,
+  DEFAULT_MODEL_ID,
   DRIFT_CHANCE,
+  MODELS,
   ROUND_ORDER,
   ROUNDS,
   TIP_CARDS,
   VALUATION_MULTIPLE,
 } from './constants'
+
+// ---- Model helpers ----
+
+function getAgentModel(agent: Agent) {
+  return MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
+}
+
+export function getEffectiveQualityScore(agent: Agent): number {
+  const model = getAgentModel(agent)
+  return Math.min(agent.qualityScore, model.qualityCap)
+}
+
+export function getAgentTickCost(agent: Agent): number {
+  const model = getAgentModel(agent)
+  return AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+}
 
 // ---- Output multiplier ----
 
@@ -29,7 +47,7 @@ export function getOutputMultiplier(qualityScore: number): number {
 // ---- Burn per tick ----
 
 export function calcBurnPerTick(state: GameState): number {
-  const salaryCost = state.agents.reduce((sum, a) => sum + AGENT_SALARY[a.role], 0)
+  const salaryCost = state.agents.reduce((sum, a) => sum + getAgentTickCost(a), 0)
   return salaryCost * (state.tickInterval / 1000 / 3600)
 }
 
@@ -38,7 +56,7 @@ export function calcBurnPerTick(state: GameState): number {
 export function applyFinanceAgents(state: GameState, baseBurn: number): number {
   const financeAgents = state.agents.filter((a) => a.role === 'finance' && !a.isOffTask)
   const reductionFactor = financeAgents.reduce((acc, agent) => {
-    return acc * (1 - 0.05 * getOutputMultiplier(agent.qualityScore))
+    return acc * (1 - 0.05 * getOutputMultiplier(getEffectiveQualityScore(agent)))
   }, 1)
   return baseBurn * reductionFactor
 }
@@ -257,7 +275,7 @@ export function resolveTick(
     if (agent.isOffTask) continue
 
     const base = BASE_OUTPUT[agent.role]
-    const multiplier = getOutputMultiplier(agent.qualityScore)
+    const multiplier = getOutputMultiplier(getEffectiveQualityScore(agent))
 
     let agentArr = (base.arr ?? 0) * multiplier
     const agentUsers = (base.users ?? 0) * multiplier

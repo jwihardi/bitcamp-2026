@@ -115,6 +115,31 @@ One-time unlock. Costs 3 chips. Adds a "Use template" button to each agent card 
 
 See `PROMPT_GRADER.md` for template content.
 
+### Upgrade: LLM Models {#llm-models}
+
+Each agent runs on an LLM model that charges per-token every tick and caps the agent's
+effective quality score. The player unlocks better models permanently with VC Chips; once
+unlocked they carry over across runs and become selectable in the hire and edit modals.
+
+```ts
+type ModelId = 'nimbus_1' | 'quanta_s' | 'synapse_pro' | 'oracle_ultra'
+```
+
+| Model          | Cost/token | Quality cap | Prestige cost | Notes                                                |
+|----------------|-----------:|------------:|--------------:|------------------------------------------------------|
+| Nimbus-1       |        $5  |          55 |  0 (default)  | Always unlocked. Enough to scrape through pre-seed. |
+| Quanta-S       |       $12  |          75 |        3 chips| Clears seed and early series_a.                     |
+| Synapse Pro    |       $25  |          90 |        7 chips| Needed for series_a/b velocity.                     |
+| Oracle Ultra   |       $45  |         100 |       15 chips| Full quality ceiling. Long prompts are catastrophic.|
+
+Per-tick cost per agent: `AGENT_SALARY[role] + tokenCount * model.costPerToken`.
+Effective quality: `min(agent.qualityScore, model.qualityCap)` (applied in tick engine).
+
+Persistence: `unlockedModelIds` is a field inside the `upgrades` object, so it is covered by
+the same `vibe_combinator_upgrades` localStorage key as every other prestige upgrade. The
+array must always contain `'nimbus_1'`; the context layer backfills it on load for old
+saves.
+
 ---
 
 ## Reset logic
