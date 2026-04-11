@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useGame } from '../context/GameContext'
-import { ROUNDS } from '../lib/constants'
-import { checkMilestone } from '../lib/tickEngine'
+import { DAY_DURATION_SECONDS, ROUNDS } from '../lib/constants'
 
 function fmtMoney(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
@@ -15,62 +14,37 @@ function fmtCount(n: number) {
   return n.toLocaleString()
 }
 
-function fmtTime(seconds: number) {
-  const m = Math.floor(seconds / 60).toString().padStart(2, '0')
-  const s = (seconds % 60).toString().padStart(2, '0')
-  return `${m}:${s}`
-}
 
 export function HUD() {
   const { state, dispatch } = useGame()
   const { round, arr, runway, users, features, vcChips, upgrades, phase } = state
   const config = ROUNDS[round]
 
-  const [timerState, setTimerState] = useState(() => ({
-    round,
-    timeRemaining: config.timeLimit,
-  }))
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
+
+  // Count up while the game is active; pause during end/shop screens.
+  useEffect(() => {
+    if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') return
+    const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000)
+    return () => clearInterval(id)
+  }, [phase])
+
+  // Reset day counter when a new run begins (tickCount drops back to 0).
+  const prevTickCountRef = useRef(state.tickCount)
+  useEffect(() => {
+    if (state.tickCount === 0 && prevTickCountRef.current !== 0) {
+      setElapsedSeconds(0)
+    }
+    prevTickCountRef.current = state.tickCount
+  }, [state.tickCount])
+
+  const currentDay = Math.floor(elapsedSeconds / DAY_DURATION_SECONDS) + 1
+
   const [advanceBanner, setAdvanceBanner] = useState<{
     roundLabel: string
     slots: number
   } | null>(null)
   const [showFlash, setShowFlash] = useState(false)
-
-  const latestStateRef = useRef(state)
-  useEffect(() => {
-    latestStateRef.current = state
-  }, [state])
-
-  useEffect(() => {
-    if (phase === 'game_over' || phase === 'ipo' || phase === 'prestige_shop') return
-
-    const id = setInterval(() => {
-      const currentState = latestStateRef.current
-
-      setTimerState((current) => {
-        if (current.round !== round) {
-          return {
-            round,
-            timeRemaining: ROUNDS[round].timeLimit,
-          }
-        }
-
-        if (current.timeRemaining <= 1) {
-          if (!checkMilestone(currentState)) {
-            dispatch({ type: 'GAME_OVER' })
-          }
-          return { ...current, timeRemaining: 0 }
-        }
-
-        return {
-          ...current,
-          timeRemaining: current.timeRemaining - 1,
-        }
-      })
-    }, 1000)
-
-    return () => clearInterval(id)
-  }, [phase, round, dispatch])
 
   const previousRoundRef = useRef(round)
   useEffect(() => {
@@ -95,35 +69,14 @@ export function HUD() {
     }
   }, [round, config.label, config.agentSlotsUnlocked])
 
-  const timeRemaining =
-    timerState.round === round ? timerState.timeRemaining : config.timeLimit
-  const threshold = config.timeLimit * 0.2
   const hasPrestigeAccess =
     vcChips > 0 ||
     upgrades.fasterTicks > 0 ||
     upgrades.biggerBudget > 0 ||
     upgrades.promptTemplates
 
-  useEffect(() => {
-    if (phase !== 'playing') return
-    if (timeRemaining > threshold) return
-    if (checkMilestone(state)) return
-
-    const id = window.setTimeout(() => {
-      dispatch({ type: 'ENTER_BURN_MODE' })
-    }, 0)
-
-    return () => window.clearTimeout(id)
-  }, [timeRemaining, threshold, phase, state, dispatch])
-
   const arrTarget = config.arr || 100_000_000
   const arrProgress = Math.min(100, (100 * (config.arr ? arr : state.valuation)) / arrTarget)
-  const timerTone =
-    timeRemaining <= 20
-      ? 'text-red-600'
-      : timeRemaining <= 60
-        ? 'text-amber-600'
-        : 'text-stone-700'
   const runwayTone = runway < 50_000 ? 'text-red-600' : 'text-stone-700'
 
   return (
@@ -147,7 +100,7 @@ export function HUD() {
             </div>
 
             <div className="flex flex-wrap items-center gap-3 text-sm">
-              <span className={`font-medium ${timerTone}`}>Time: {fmtTime(timeRemaining)}</span>
+              <span className="font-medium text-stone-700">Day {currentDay}</span>
               <span className={`font-medium ${runwayTone}`}>Runway: {fmtMoney(runway)} runway</span>
               {vcChips > 0 && <span className="text-stone-700">VC Chips: {vcChips}</span>}
               {hasPrestigeAccess && phase === 'playing' && (

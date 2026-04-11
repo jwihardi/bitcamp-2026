@@ -38,6 +38,10 @@ export const TICK_INTERVALS: readonly [number, number, number, number] = [
   3000, 2500, 2000, 1500,
 ]
 
+// How many real-time seconds constitute one in-game day.
+// Change this to speed up or slow down the day cycle.
+export const DAY_DURATION_SECONDS = 240 // 4 minutes
+
 export const DRIFT_CHANCE = 0.15
 export const CHAOS_CHANCE_PER_TICK = 0.04
 
