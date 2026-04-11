@@ -1,223 +1,202 @@
-# PROMPT_GRADER.md — Vibe Combinator
+# PROMPT_GRADE.md — Vibe Combinator
 
-The prompt grader turns a raw text prompt into a quality score (0–100). This score is the central mechanic of the game — it determines output multipliers, and drift risk.
-
-There are two grading paths: a local heuristic that runs instantly on every keystroke, and an optional Claude API call the player can trigger manually.
+The prompt evaluator is a per-agent Gemini API call that scores the player's prompt and returns token cost and revenue estimates tailored to the agent's role. It replaces the old "Grade with AI" button with richer, role-aware output.
 
 ---
 
-## Heuristic grader (runs on every keystroke)
+## When it fires
 
-The heuristic runs client-side with no API call. It should feel snappy — recompute on every `onChange` of the prompt textarea.
-
-### Scoring components
-
-The final score is clamped to [0, 100] and is the sum of these components:
-
-#### 1. Length score (30 points max)
-
-Reward conciseness. The sweet spot is 20–80 tokens. Penalize both extremes.
-
-```ts
-function lengthScore(tokenCount: number): number {
-  if (tokenCount < 5)  return 0
-  if (tokenCount <= 20) return 15 + (tokenCount - 5) * 1   // ramp up
-  if (tokenCount <= 80) return 30                            // sweet spot
-  if (tokenCount <= 200) return 30 - (tokenCount - 80) * 0.15  // gentle penalty
-  return Math.max(0, 12 - (tokenCount - 200) * 0.05)        // steep penalty
-}
-```
-
-#### 2. Role keyword score (40 points max)
-
-Each role has a set of high-value keywords. Award points for presence, with diminishing returns after the first few hits.
-
-```ts
-const ROLE_KEYWORDS: Record<AgentRole, string[]> = {
-  sales: [
-    'revenue', 'close', 'prospect', 'pipeline', 'quota', 'outreach',
-    'convert', 'deal', 'customer', 'ARR', 'upsell', 'demo', 'follow up',
-  ],
-  marketing: [
-    'audience', 'brand', 'campaign', 'content', 'engagement', 'funnel',
-    'growth', 'acquisition', 'retention', 'channel', 'conversion', 'viral',
-  ],
-  engineering: [
-    'implement', 'build', 'ship', 'deploy', 'test', 'debug', 'refactor',
-    'architecture', 'api', 'performance', 'feature', 'PR', 'ticket',
-  ],
-  finance: [
-    'burn', 'runway', 'budget', 'forecast', 'expense', 'reduce',
-    'efficiency', 'cash', 'cost', 'margin', 'spend', 'optimize',
-  ],
-}
-
-function roleKeywordScore(prompt: string, role: AgentRole): number {
-  const lower = prompt.toLowerCase()
-  const hits = ROLE_KEYWORDS[role].filter(kw => lower.includes(kw)).length
-  // 10pts for first hit, +7 for second, +5 for third, +3 each after, cap at 40
-  if (hits === 0) return 0
-  if (hits === 1) return 10
-  if (hits === 2) return 17
-  if (hits === 3) return 22
-  return Math.min(40, 22 + (hits - 3) * 3)
-}
-```
-
-#### 3. Specificity score (20 points max)
-
-Reward prompts that include a goal, a constraint, or a specific action. Penalize vague filler.
-
-```ts
-const SPECIFICITY_SIGNALS = [
-  /\d+/,                      // contains a number
-  /by (monday|friday|eod|eow|next week)/i,
-  /goal[:is]/i,
-  /target[:is]/i,
-  /focus on/i,
-  /prioritize/i,
-  /avoid/i,
-  /must (not|include|exclude)/i,
-  /output (should|must|will)/i,
-]
-
-const VAGUE_SIGNALS = [
-  /do your best/i,
-  /try to/i,
-  /maybe/i,
-  /whatever you think/i,
-  /general(ly)?/i,
-  /just/i,
-]
-
-function specificityScore(prompt: string): number {
-  const specificHits = SPECIFICITY_SIGNALS.filter(r => r.test(prompt)).length
-  const vagueHits = VAGUE_SIGNALS.filter(r => r.test(prompt)).length
-  const raw = (specificHits * 5) - (vagueHits * 4)
-  return Math.max(0, Math.min(20, raw))
-}
-```
-
-#### 4. Combining scores
-
-```ts
-function computeHeuristicScore(prompt: string, role: AgentRole): number {
-  const tokens = prompt.trim().split(/\s+/).filter(Boolean)
-  const tokenCount = tokens.length
-  const score =
-    lengthScore(tokenCount) +
-    roleKeywordScore(prompt, role) +
-    specificityScore(prompt)
-  return Math.round(Math.max(0, Math.min(100, score)))
-}
-```
+The player clicks **"Evaluate"** on any agent card. One API call per agent. Never automatic.
 
 ---
 
-## Claude API grader (on-demand)
-
-The player can press a **"Grade with AI"** button on any agent card. This fires a single Claude API call and caches the result on the agent. The button is disabled while loading and shows the cached score once received.
-
-### API call
+## API call
 
 ```ts
-async function gradeWithClaude(prompt: string, role: AgentRole): Promise<{
-  score: number
-  explanation: string
-}> {
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+async function evaluatePrompt(
+  prompt: string,
+  role: AgentRole,
+  roundContext: { round: FundingRound; arr: number; users: number; features: number }
+): Promise<PromptEvaluation> {
+  const roleDescriptions: Record<AgentRole, string> = {
+    sales: 'generates ARR by closing deals and expanding accounts',
+    marketing: 'grows user acquisition through campaigns and content',
+    engineering: 'ships product features and maintains system reliability',
+    finance: 'reduces burn rate by optimizing spend and cutting waste',
+  }
+
+  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=YOUR_GEMINI_API_KEY', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 1000,
-      messages: [{
+      contents: [{
         role: 'user',
-        content: `You are grading an AI agent prompt for a ${role} agent in a startup simulation game.
+        parts: [{
+          text: `You are evaluating an AI agent prompt in a startup simulation game.
 
-The player wrote this prompt:
+This agent's role is **${role}**. A ${role} agent ${roleDescriptions[role]}.
+
+The company is currently at the ${roundContext.round} stage with $${roundContext.arr.toLocaleString()} ARR, ${roundContext.users} users, and ${roundContext.features} features shipped.
+
+The player wrote this prompt for their ${role} agent:
 <prompt>
 ${prompt}
 </prompt>
 
-Score this prompt from 0 to 100 based on:
-- Conciseness (shorter and specific beats long and vague)
-- Role relevance (does it actually help a ${role} agent?)
-- Clarity of goal or constraint
-- Absence of filler language
-
-Respond ONLY with a JSON object, no markdown, no preamble:
-{"score": <number 0-100>, "explanation": "<one sentence, max 20 words>"}`
-      }]
+Evaluate and return ONLY a JSON object, no markdown, no preamble:
+{
+  "score": <0-100, how effective this prompt is for a ${role} agent>,
+  "estimatedTokensPerTick": <integer, estimate how many LLM tokens this prompt would consume per invocation — consider prompt length, instruction complexity, and expected output size>,
+  "estimatedRevenuePerTick": <integer, estimated dollar output per tick for this role given the prompt quality — ${role === 'sales' ? 'ARR generated' : role === 'marketing' ? 'user-equivalent value in dollars' : role === 'engineering' ? 'feature-shipping value in dollars' : 'burn reduction value in dollars'}>,
+  "tokenEfficiency": <float rounded to 2 decimals, ratio of estimatedRevenuePerTick to estimatedTokensPerTick — higher is better>,
+  "explanation": "<one sentence on what makes this prompt good or bad for a ${role} agent, max 25 words>"
+}`
+        }]
+      }],
+      generationConfig: {
+        maxOutputTokens: 1000,
+        responseMimeType: 'application/json',
+      },
     })
   })
 
   const data = await response.json()
-  const text = data.content[0].text.trim()
-  const parsed = JSON.parse(text)
-  return { score: parsed.score, explanation: parsed.explanation }
+  const text = data.candidates[0].content.parts[0].text.trim()
+  return JSON.parse(text)
 }
 ```
 
-### Caching
-
-Once a prompt has been API-graded, set `agent.qualityCached = true` and store the score. The cached score is used for output multipliers instead of the heuristic score.
-
-The cache is invalidated (reset to heuristic) when the player edits the prompt by more than 10 characters from the cached version. Track the cached prompt text alongside the score.
-
-### UI states for the grade button
-
-- Default: "Grade with AI ✦"
-- Loading: "Grading..." (disabled)
-- Cached: "Graded ✓" with the score shown (clicking re-grades)
-- Error: "Retry" with a small error message
-
 ---
 
-## Token counter
-
-Count tokens by splitting on whitespace. This is intentionally approximate — it matches the intuition of "more words = more expensive" without needing a real tokenizer.
+## Evaluation shape
 
 ```ts
-function countTokens(prompt: string): number {
-  return prompt.trim().split(/\s+/).filter(Boolean).length
+type PromptEvaluation = {
+  score: number                  // 0–100
+  estimatedTokensPerTick: number // integer
+  estimatedRevenuePerTick: number // integer, dollars
+  tokenEfficiency: number        // revenue / tokens ratio
+  explanation: string
 }
 ```
 
-Display the count live next to the textarea: `"47 tokens"`. Color it amber above 100, red above 200.
-
-Token count also drives per-tick model cost — see `PRESTIGE.md#llm-models`. Longer prompts
-literally cost more every tick, which amplifies the "keep it concise" scoring signal with a
-direct economic penalty.
-
 ---
 
-## Score display
+## Token cost integration
 
-Show the quality score as a badge on the agent card. Color coding:
-
-- 0–39: red — agent is at drift risk, warn visually
-- 40–69: amber — acceptable but suboptimal
-- 70–89: teal — good
-- 90–100: purple — excellent
-
-Show a small "!" icon next to the badge if `driftRisk` is true (score < 40).
-
----
-
-## Prompt templates (prestige upgrade)
-
-If the player has purchased the `promptTemplates` upgrade, show a "Use template" button that populates the textarea with a role-appropriate starter prompt. Templates should be genuinely good prompts that score 70+ on the heuristic, so the upgrade feels valuable.
+The estimated token count feeds into a per-tick compute cost for the agent, layered on top of salary.
 
 ```ts
-const PROMPT_TEMPLATES: Record<AgentRole, string> = {
-  sales:
-    'Close 3 enterprise deals this week. Target accounts with 50+ seats. Follow up within 24 hours of demo. Avoid discounting below 15%.',
-  marketing:
-    'Run a LinkedIn campaign targeting B2B founders. Goal: 500 signups. Focus on pain point messaging, not feature lists.',
-  engineering:
-    'Ship the onboarding flow by Friday. Must include email verification and error states. No regressions on existing auth.',
-  finance:
-    'Reduce monthly burn by 12%. Audit SaaS subscriptions first. Flag any expense over $500 without a clear ROI.',
+const TOKEN_COST_RATE = 0.50  // dollars per estimated token per tick
+
+function computeTokenCost(agent: Agent): number {
+  // Use evaluation estimate if available, otherwise naive fallback
+  const tokens = agent.evalEstimatedTokens ?? agent.tokenCount * 3
+  return tokens * TOKEN_COST_RATE
 }
 ```
+
+Before evaluation, agents use a fallback (`wordCount * 3`). After evaluation, the estimate persists until the prompt changes significantly (>10 character delta from evaluated version).
+
+### Burn rate impact
+
+Total burn per tick:
+
+```ts
+function calcBurnPerTick(state: GameState): number {
+  const salaryCost = state.agents.reduce((sum, a) => sum + AGENT_SALARY[a.role], 0)
+  const computeCost = state.agents.reduce((sum, a) => sum + computeTokenCost(a), 0)
+  const totalCost = (salaryCost + computeCost) * (state.tickInterval / 1000 / 3600)
+  return totalCost
+}
+```
+
+This makes bloated prompts expensive. A 200-word engineering prompt might score 65 but cost 3x what a tight 40-word prompt costs. Token efficiency becomes a real economic constraint.
+
+---
+
+## Revenue estimate by role
+
+The `estimatedRevenuePerTick` is role-aware:
+
+| Role | What "revenue" means | Example range |
+|------|---------------------|---------------|
+| Sales | Direct ARR generated | $2,000–$16,000/tick |
+| Marketing | User growth valued in dollar-equivalent | $500–$6,000/tick |
+| Engineering | Feature velocity valued in dollar-equivalent | $300–$4,000/tick |
+| Finance | Burn reduction valued as saved dollars | $200–$3,000/tick |
+
+The estimate is advisory — displayed to the player so they can compare agents. It does **not** replace the heuristic-driven output multiplier in the tick engine. Gameplay math still runs on the fast local heuristic. The evaluation shows the player what a smarter evaluator thinks their prompt is worth.
+
+---
+
+## Agent card display (post-evaluation)
+
+After evaluation, the agent card shows a new section below the heuristic score:
+
+```
+Quality: 72 (heuristic)
+─────────────────────────
+AI Eval: 68
+⚡ ~280 tokens/tick ($140 compute)
+💰 ~$8,400 revenue/tick
+📊 Efficiency: 30.0 $/token
+"Add a specific quota number to sharpen the conversion target."
+```
+
+### Efficiency color coding
+
+- `< 10`: red — prompt costs more than it's worth
+- `10–25`: amber — acceptable but room to improve
+- `25–50`: teal — good return on tokens
+- `> 50`: purple — excellent efficiency
+
+---
+
+## Evaluation cost
+
+Each evaluation costs runway:
+
+```ts
+const EVAL_COST = 200  // dollars per evaluation
+```
+
+Button label: `"Evaluate ($200)"`. Disabled if runway < $200.
+
+Cheaper than the CFO ($500) because it's scoped to one agent. Players can evaluate selectively — check the agent they're most unsure about without burning too much runway.
+
+---
+
+## Caching
+
+Cache the evaluation on the agent object:
+
+```ts
+type Agent = {
+  // ... existing fields
+  evalResult: PromptEvaluation | null
+  evalPromptSnapshot: string | null  // prompt text at time of evaluation
+  evalEstimatedTokens: number | null
+}
+```
+
+Cache invalidates when the prompt changes by more than 10 characters from `evalPromptSnapshot`. On invalidation, gray out the old eval with a label: "Prompt changed — re-evaluate."
+
+---
+
+## Button states
+
+- Default: `"Evaluate ($200) ✦"`
+- Loading: `"Evaluating..."` (disabled)
+- Cached: `"Evaluated ✓"` — clicking re-evaluates
+- Stale: `"Re-evaluate ($200) ⟳"`
+- Error: `"Retry"` — do not deduct cost on failure
+- Insufficient funds: `"Evaluate ($200)"` (disabled, tooltip: "Not enough runway")
+
+---
+
+## Edge cases
+
+- **Empty prompt**: Return score 0, tokens 0, revenue 0, explanation "No prompt written." Do not call API — handle client-side.
+- **API failure**: Keep previous cached evaluation. Show "Evaluation failed — try again."
+- **Very long prompts (>200 words)**: Truncate to first 200 words in the API payload, append `(truncated — full prompt is ${wordCount} words)`. The evaluator can still assess structure from the opening.

@@ -21,8 +21,15 @@ function scoreBadgeClass(score: number) {
   return 'bg-red-100 text-red-800'
 }
 
+function efficiencyBadgeClass(efficiency: number) {
+  if (efficiency > 50) return 'bg-purple-100 text-purple-800'
+  if (efficiency >= 25) return 'bg-teal-100 text-teal-800'
+  if (efficiency >= 10) return 'bg-amber-100 text-amber-800'
+  return 'bg-red-100 text-red-800'
+}
+
 export function AgentCard({ agent }: Props) {
-  const { dispatch } = useGame()
+  const { dispatch, notifyCFOActivity } = useGame()
   const [editOpen, setEditOpen] = useState(false)
   const [confirmFire, setConfirmFire] = useState(false)
 
@@ -36,14 +43,17 @@ export function AgentCard({ agent }: Props) {
 
   function handleFire() {
     dispatch({ type: 'FIRE_AGENT', agentId: agent.id })
+    notifyCFOActivity()
     setConfirmFire(false)
   }
 
   const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
   const hasPrompt = agent.prompt.trim().length > 0
   const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
-  const perTickCost = AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+  const effectiveTokens = agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
+  const perTickCost = AGENT_SALARY[agent.role] + effectiveTokens * model.costPerToken
   const overCap = agent.qualityScore > model.qualityCap
+  const evalCached = agent.evalResult != null
 
   return (
     <>
@@ -93,9 +103,17 @@ export function AgentCard({ agent }: Props) {
           <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadgeClass(agent.qualityScore)}`}>
             {agent.qualityScore}/100
             {agent.driftRisk && ' ⚠'}
-            {agent.qualityCached && ' ✦'}
+            {evalCached && ' ✦'}
             {overCap && ` ↕${model.qualityCap}`}
           </span>
+          {agent.evalResult && (
+            <span
+              className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${efficiencyBadgeClass(agent.evalResult.tokenEfficiency)}`}
+              title="Token efficiency: revenue / tokens per tick"
+            >
+              {agent.evalResult.tokenEfficiency.toFixed(1)} $/tok
+            </span>
+          )}
           <span
             className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-600"
             title={`${model.name} — $${model.costPerToken}/token · cap ${model.qualityCap}`}
@@ -115,7 +133,8 @@ export function AgentCard({ agent }: Props) {
           ~${perTickCost.toLocaleString()}/tick
           <span className="text-stone-500">
             {' '}
-            (${AGENT_SALARY[agent.role].toLocaleString()} + {agent.tokenCount} × ${model.costPerToken})
+            (${AGENT_SALARY[agent.role].toLocaleString()} + {effectiveTokens} × ${model.costPerToken}
+            {agent.evalResult && ' · AI est'})
           </span>
         </p>
 

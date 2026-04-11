@@ -8,3 +8,4 @@
 @../docs/FUNDING_GATES.md
 @../docs/AGENT_SLOT.md
 @../docs/PROMPT_GRADER.md
+@../docs/AI_CFO.md

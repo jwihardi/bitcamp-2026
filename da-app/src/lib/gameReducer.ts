@@ -14,7 +14,8 @@ import { shouldInvalidateCachedGrade } from './promptGrader'
 function computeImmediateBurnRate(state: GameState): number {
   return state.agents.reduce((sum, agent) => {
     const model = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
-    return sum + AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+    const tokens = agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
+    return sum + AGENT_SALARY[agent.role] + tokens * model.costPerToken
   }, 0)
 }
 
@@ -81,17 +82,21 @@ export function gameReducer(state: GameState, action: Action): GameState {
         ...state,
         agents: state.agents.map((a) => {
           if (a.id !== action.agentId) return a
-          const stillCached =
-            a.qualityCached &&
-            !shouldInvalidateCachedGrade(action.prompt, a.cachedPromptText)
-          const qualityScore = stillCached ? a.qualityScore : action.qualityScore
+          const evalStillValid =
+            a.evalResult != null &&
+            a.evalPromptSnapshot != null &&
+            !shouldInvalidateCachedGrade(action.prompt, a.evalPromptSnapshot)
+          const qualityScore = evalStillValid
+            ? a.qualityScore
+            : action.qualityScore
           return {
             ...a,
             prompt: action.prompt,
             tokenCount: action.tokenCount,
             qualityScore,
             driftRisk: qualityScore < 40,
-            qualityCached: stillCached,
+            evalResult: evalStillValid ? a.evalResult : null,
+            evalPromptSnapshot: evalStillValid ? a.evalPromptSnapshot : null,
           }
         }),
       }
@@ -128,20 +133,36 @@ export function gameReducer(state: GameState, action: Action): GameState {
       }
     }
 
-    case 'GRADE_AGENT_AI': {
+    case 'EVALUATE_AGENT': {
+      const cost = Math.max(0, action.cost)
+      const nextRunway = Math.max(0, state.runway - cost)
+      const agents = state.agents.map((a) =>
+        a.id === action.agentId
+          ? {
+              ...a,
+              qualityScore: action.evaluation.score,
+              driftRisk: action.evaluation.score < 40,
+              evalResult: action.evaluation,
+              evalPromptSnapshot: action.promptSnapshot,
+            }
+          : a,
+      )
       return {
         ...state,
-        agents: state.agents.map((a) =>
-          a.id === action.agentId
-            ? {
-                ...a,
-                qualityScore: action.score,
-                qualityCached: true,
-                cachedPromptText: action.cachedPromptText,
-                driftRisk: action.score < 40,
-              }
-            : a,
-        ),
+        runway: nextRunway,
+        agents,
+        burnRate: computeImmediateBurnRate({ ...state, agents }),
+        phase: nextRunway <= 0 ? 'game_over' : state.phase,
+      }
+    }
+
+    case 'CONSULT_CFO': {
+      const cost = Math.max(0, action.cost)
+      const nextRunway = Math.max(0, state.runway - cost)
+      return {
+        ...state,
+        runway: nextRunway,
+        phase: nextRunway <= 0 ? 'game_over' : state.phase,
       }
     }
 

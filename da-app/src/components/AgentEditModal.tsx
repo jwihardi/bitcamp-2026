@@ -7,11 +7,17 @@ import {
   AGENT_ICONS,
   AGENT_SALARY,
   DEFAULT_MODEL_ID,
+  EVAL_COST,
   MODELS,
   PROMPT_TEMPLATES,
   ROLE_COLORS,
 } from '../lib/constants'
-import { computeHeuristicScore, countTokens, gradeWithClaude } from '../lib/promptGrader'
+import {
+  computeHeuristicScore,
+  countTokens,
+  evaluatePrompt,
+  shouldInvalidateCachedGrade,
+} from '../lib/promptGrader'
 
 type Props = { agent: Agent; onClose: () => void }
 
@@ -28,10 +34,17 @@ function tokenClass(count: number) {
   return 'text-stone-400'
 }
 
+function efficiencyClass(efficiency: number) {
+  if (efficiency > 50) return 'text-purple-300'
+  if (efficiency >= 25) return 'text-teal-300'
+  if (efficiency >= 10) return 'text-amber-300'
+  return 'text-red-300'
+}
+
 export function AgentEditModal({ agent, onClose }: Props) {
-  const { state, dispatch } = useGame()
-  const [grading, setGrading] = useState(false)
-  const [gradeError, setGradeError] = useState<string | null>(null)
+  const { state, dispatch, notifyCFOActivity } = useGame()
+  const [evaluating, setEvaluating] = useState(false)
+  const [evalError, setEvalError] = useState<string | null>(null)
 
   function handlePromptChange(value: string) {
     const tokenCount = countTokens(value)
@@ -43,25 +56,37 @@ export function AgentEditModal({ agent, onClose }: Props) {
       tokenCount,
       qualityScore,
     })
+    notifyCFOActivity()
   }
 
-  async function handleGradeWithAI() {
-    // Snapshot the prompt now — the user may keep typing during the API call.
+  async function handleEvaluate() {
+    if (!agent.prompt.trim()) return
+    if (state.runway < EVAL_COST) return
+
     const promptSnapshot = agent.prompt
-    setGrading(true)
-    setGradeError(null)
+    setEvaluating(true)
+    setEvalError(null)
     try {
-      const result = await gradeWithClaude(promptSnapshot, agent.role)
-      dispatch({
-        type: 'GRADE_AGENT_AI',
-        agentId: agent.id,
-        score: result.score,
-        cachedPromptText: promptSnapshot,
+      const evaluation = await evaluatePrompt(promptSnapshot, agent.role, {
+        round: state.round,
+        arr: Math.max(0, Math.floor(state.arr)),
+        users: Math.max(0, Math.floor(state.users)),
+        features: Math.max(0, Math.floor(state.features)),
       })
-    } catch {
-      setGradeError('Grade failed — retry?')
+      dispatch({
+        type: 'EVALUATE_AGENT',
+        agentId: agent.id,
+        evaluation,
+        promptSnapshot,
+        cost: EVAL_COST,
+      })
+      notifyCFOActivity()
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Evaluation failed — try again.'
+      setEvalError(message)
     } finally {
-      setGrading(false)
+      setEvaluating(false)
     }
   }
 
@@ -73,16 +98,36 @@ export function AgentEditModal({ agent, onClose }: Props) {
   function handleModelChange(nextId: ModelId) {
     if (nextId === agent.modelId) return
     dispatch({ type: 'UPDATE_AGENT_MODEL', agentId: agent.id, modelId: nextId })
+    notifyCFOActivity()
   }
 
   const roleName = agent.role.charAt(0).toUpperCase() + agent.role.slice(1)
   const currentModel = MODELS[agent.modelId] ?? MODELS[DEFAULT_MODEL_ID]
+  const evalResult = agent.evalResult
+  const evalCached = evalResult != null
+  const evalStale =
+    evalCached &&
+    shouldInvalidateCachedGrade(agent.prompt, agent.evalPromptSnapshot ?? '')
+  const effectiveTokens = evalResult?.estimatedTokensPerTick ?? agent.tokenCount
   const perTickCost =
-    AGENT_SALARY[agent.role] + agent.tokenCount * currentModel.costPerToken
+    AGENT_SALARY[agent.role] + effectiveTokens * currentModel.costPerToken
+  const estimatedComputeCost = effectiveTokens * currentModel.costPerToken
   const overCap = agent.qualityScore > currentModel.qualityCap
   const unlockedModels = state.upgrades.unlockedModelIds
     .map((id) => MODELS[id])
     .filter((m): m is NonNullable<typeof m> => Boolean(m))
+
+  const canAffordEval = state.runway >= EVAL_COST
+  const evaluateDisabled = evaluating || !agent.prompt.trim() || !canAffordEval
+
+  function evaluateButtonLabel(): string {
+    if (evaluating) return 'Evaluating…'
+    if (evalError) return 'Retry'
+    if (!canAffordEval) return `Evaluate ($${EVAL_COST})`
+    if (evalStale) return `Re-evaluate ($${EVAL_COST}) ⟳`
+    if (evalCached) return 'Evaluated ✓'
+    return `Evaluate ($${EVAL_COST}) ✦`
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -105,7 +150,7 @@ export function AgentEditModal({ agent, onClose }: Props) {
                 {roleName}
               </span>
             </div>
-            <p className="mt-1 text-xs text-stone-400">Edit this agent's prompt to improve their output.</p>
+            <p className="mt-1 text-xs text-stone-400">Edit this agent&rsquo;s prompt to improve their output.</p>
           </div>
           <button
             type="button"
@@ -128,7 +173,7 @@ export function AgentEditModal({ agent, onClose }: Props) {
               <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${scoreBadgeClass(agent.qualityScore)}`}>
                 {agent.qualityScore}/100
                 {agent.driftRisk && ' ⚠'}
-                {agent.qualityCached && ' ✦'}
+                {evalCached && ' ✦'}
               </span>
             </div>
           </div>
@@ -184,18 +229,57 @@ export function AgentEditModal({ agent, onClose }: Props) {
           )}
         </div>
 
-        {/* Footer: grade + done */}
+        {/* AI evaluation section */}
+        {evalResult && (
+          <div
+            className={`mt-5 rounded-xl border px-4 py-3 text-xs transition-colors ${
+              evalStale
+                ? 'border-stone-700 bg-stone-900/60 text-stone-500'
+                : 'border-stone-700 bg-stone-900 text-stone-200'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-stone-400">
+                AI evaluation
+              </p>
+              <span className={`font-semibold ${scoreBadgeClass(evalResult.score).replace('bg-', 'text-').replace('-100', '-300')}`}>
+                {evalResult.score}/100
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+              <p>
+                ⚡ ~{evalResult.estimatedTokensPerTick} tokens/tick{' '}
+                <span className="text-stone-500">
+                  (${estimatedComputeCost.toLocaleString()} compute)
+                </span>
+              </p>
+              <p>💰 ~${evalResult.estimatedRevenuePerTick.toLocaleString()} rev/tick</p>
+              <p className={`font-medium ${efficiencyClass(evalResult.tokenEfficiency)}`}>
+                📊 Efficiency: {evalResult.tokenEfficiency.toFixed(1)} $/token
+              </p>
+            </div>
+            <p className="mt-2 text-stone-300">&ldquo;{evalResult.explanation}&rdquo;</p>
+            {evalStale && (
+              <p className="mt-2 text-[11px] italic text-amber-300">
+                Prompt changed — re-evaluate.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Footer: evaluate + done */}
         <div className="mt-5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleGradeWithAI}
-              disabled={grading || !agent.prompt.trim()}
+              onClick={handleEvaluate}
+              disabled={evaluateDisabled}
+              title={!canAffordEval ? 'Not enough runway' : undefined}
               className="rounded-xl border border-stone-700 px-4 py-2 text-sm text-stone-200 transition-colors hover:border-stone-500 hover:text-stone-50 disabled:cursor-not-allowed disabled:text-stone-600"
             >
-              {grading ? 'Grading…' : agent.qualityCached ? 'Graded ✓ (re-grade)' : 'Grade with AI ✦'}
+              {evaluateButtonLabel()}
             </button>
-            {gradeError && <span className="text-xs text-red-400">{gradeError}</span>}
+            {evalError && <span className="text-xs text-red-400">{evalError}</span>}
           </div>
           <button
             type="button"

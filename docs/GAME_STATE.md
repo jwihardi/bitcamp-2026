@@ -55,7 +55,7 @@ type Agent = {
   prompt: string
   tokenCount: number    // computed from prompt on change
   qualityScore: number  // 0–100, computed by heuristic or cached from API (raw, pre-cap)
-  qualityCached: boolean // true if score came from Claude API grade
+  qualityCached: boolean // true if score came from the LLM evaluator API
   driftRisk: boolean    // true if qualityScore < 40
   isOffTask: boolean    // true for current tick if drift roll hit
   modelId: ModelId      // which LLM model this agent runs on

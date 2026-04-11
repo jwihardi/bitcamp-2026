@@ -5,6 +5,7 @@ import { AgentGrid } from '../components/AgentGrid'
 import { TipCard } from '../components/TipCard'
 import { GameOverScreen } from '../components/GameOverScreen'
 import { IPOScreen } from '../components/IPOScreen'
+import { CFOPanel } from '../components/CFOPanel'
 import { useGame } from '../context/GameContext'
 
 function HomeContent() {
@@ -21,6 +22,7 @@ function HomeContent() {
         <AgentGrid />
       </main>
       <TipCard />
+      <CFOPanel />
       <GameOverScreen />
       <IPOScreen />
     </div>

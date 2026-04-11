@@ -16,7 +16,7 @@ type Props = { onClose: () => void }
 const ROLES: AgentRole[] = ['sales', 'marketing', 'engineering', 'finance']
 
 export function HireAgentModal({ onClose }: Props) {
-  const { state, dispatch } = useGame()
+  const { state, dispatch, notifyCFOActivity } = useGame()
   const [role, setRole] = useState<AgentRole>('sales')
   const [icon, setIcon] = useState<AgentIcon>('robot')
   const [name, setName] = useState('')
@@ -43,13 +43,15 @@ export function HireAgentModal({ onClose }: Props) {
         prompt: '',
         tokenCount: 0,
         qualityScore: 0,
-        qualityCached: false,
-        cachedPromptText: '',
         driftRisk: true,
         isOffTask: false,
         modelId,
+        evalResult: null,
+        evalPromptSnapshot: null,
       },
     })
+
+    notifyCFOActivity()
 
     onClose()
   }

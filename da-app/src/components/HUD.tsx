@@ -32,7 +32,9 @@ export function HUD() {
   const prevTickCountRef = useRef(state.tickCount)
   useEffect(() => {
     if (state.tickCount === 0 && prevTickCountRef.current !== 0) {
-      setElapsedSeconds(0)
+      const id = window.setTimeout(() => setElapsedSeconds(0), 0)
+      prevTickCountRef.current = state.tickCount
+      return () => window.clearTimeout(id)
     }
     prevTickCountRef.current = state.tickCount
   }, [state.tickCount])

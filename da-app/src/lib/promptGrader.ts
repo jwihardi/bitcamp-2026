@@ -1,4 +1,4 @@
-import type { AgentRole } from './types'
+import type { AgentRole, FundingRound, PromptEvaluation } from './types'
 
 // ---- Token counter ----
 
@@ -123,38 +123,69 @@ export function shouldInvalidateCachedGrade(
   return countPromptCharacterEdits(nextPrompt, cachedPromptText) > 10
 }
 
-// ---- Claude API grader ----
+// ---- LLM API evaluator ----
 
-export type GradeResult = {
-  score: number
-  explanation: string
+export type EvaluateRoundContext = {
+  round: FundingRound
+  arr: number
+  users: number
+  features: number
 }
 
-export async function gradeWithClaude(prompt: string, role: AgentRole): Promise<GradeResult> {
-  const response = await fetch('/api/grade', {
+export const EMPTY_EVALUATION: PromptEvaluation = {
+  score: 0,
+  estimatedTokensPerTick: 0,
+  estimatedRevenuePerTick: 0,
+  tokenEfficiency: 0,
+  explanation: 'No prompt written.',
+}
+
+function clampNonNegative(value: unknown): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return 0
+  return Math.max(0, Math.round(value))
+}
+
+export async function evaluatePrompt(
+  prompt: string,
+  role: AgentRole,
+  roundContext: EvaluateRoundContext,
+): Promise<PromptEvaluation> {
+  if (prompt.trim().length === 0) return EMPTY_EVALUATION
+
+  const response = await fetch('/api/evaluate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prompt, role }),
+    body: JSON.stringify({ prompt, role, roundContext }),
   })
 
   if (!response.ok) {
-    let detail = `Grade request failed: ${response.status}`
+    let detail = `Evaluation failed: ${response.status}`
     try {
       const data = (await response.json()) as { error?: string }
-      if (data.error) {
-        detail = data.error
-      }
+      if (data.error) detail = data.error
     } catch {
       // Ignore malformed error bodies and keep the HTTP status message.
     }
     throw new Error(detail)
   }
 
-  const data = (await response.json()) as Partial<GradeResult>
+  const data = (await response.json()) as Partial<PromptEvaluation>
 
-  if (typeof data.score !== 'number' || typeof data.explanation !== 'string') {
-    throw new Error('Grade response was invalid.')
+  if (
+    typeof data.score !== 'number' ||
+    typeof data.estimatedTokensPerTick !== 'number' ||
+    typeof data.estimatedRevenuePerTick !== 'number' ||
+    typeof data.tokenEfficiency !== 'number' ||
+    typeof data.explanation !== 'string'
+  ) {
+    throw new Error('Evaluation response was invalid.')
   }
 
-  return { score: clampScore(data.score), explanation: data.explanation }
+  return {
+    score: clampScore(data.score),
+    estimatedTokensPerTick: clampNonNegative(data.estimatedTokensPerTick),
+    estimatedRevenuePerTick: clampNonNegative(data.estimatedRevenuePerTick),
+    tokenEfficiency: Math.max(0, Number(data.tokenEfficiency.toFixed(2))),
+    explanation: data.explanation,
+  }
 }

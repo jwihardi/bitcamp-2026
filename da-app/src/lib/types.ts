@@ -42,6 +42,30 @@ export type TipTrigger =
   | 'runway_below_25k'
   | 'first_agent_fired'
   | 'ipo_triggered'
+  | 'first_cfo_consult'
+
+export type PromptEvaluation = {
+  score: number
+  estimatedTokensPerTick: number
+  estimatedRevenuePerTick: number
+  tokenEfficiency: number
+  explanation: string
+}
+
+export type CFOHealth = 'healthy' | 'warning' | 'critical'
+
+export type CFOLesson = {
+  topic: string
+  body: string
+}
+
+export type CFOReport = {
+  health: CFOHealth
+  verdict: string
+  advice: string[]
+  lesson: CFOLesson
+  consultedAt: number
+}
 
 export type Agent = {
   id: string
@@ -51,11 +75,11 @@ export type Agent = {
   prompt: string
   tokenCount: number
   qualityScore: number
-  qualityCached: boolean
-  cachedPromptText: string
   driftRisk: boolean
   isOffTask: boolean
   modelId: ModelId
+  evalResult: PromptEvaluation | null
+  evalPromptSnapshot: string | null
 }
 
 export type TipCard = {
@@ -126,11 +150,13 @@ export type Action =
   | { type: 'UPDATE_AGENT_ICON'; agentId: string; icon: AgentIcon }
   | { type: 'UPDATE_AGENT_MODEL'; agentId: string; modelId: ModelId }
   | {
-      type: 'GRADE_AGENT_AI'
+      type: 'EVALUATE_AGENT'
       agentId: string
-      score: number
-      cachedPromptText: string
+      evaluation: PromptEvaluation
+      promptSnapshot: string
+      cost: number
     }
+  | { type: 'CONSULT_CFO'; cost: number }
   | { type: 'OPEN_PRESTIGE_SHOP' }
   | { type: 'CLOSE_PRESTIGE_SHOP' }
   | { type: 'ENTER_BURN_MODE' }

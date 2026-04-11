@@ -14,7 +14,7 @@ Each agent card shows, in order:
 4. **Quality score badge** — 0–100, color-coded, with drift warning if < 40
 5. **Token count** — live count, colored by threshold
 6. **Prompt textarea** — the main editing surface
-7. **"Grade with AI" button** — triggers Claude API grade, shows cached state
+7. **"Grade with AI" button** — triggers the Gemini-backed evaluator API, shows cached state
 8. **Off-task indicator** — shown for the current tick if the agent drifted
 9. **Fire button** — removes the agent from the slot (with a confirmation)
 

@@ -28,9 +28,13 @@ export function getEffectiveQualityScore(agent: Agent): number {
   return Math.min(agent.qualityScore, model.qualityCap)
 }
 
+export function getAgentTokensForBurn(agent: Agent): number {
+  return agent.evalResult?.estimatedTokensPerTick ?? agent.tokenCount
+}
+
 export function getAgentTickCost(agent: Agent): number {
   const model = getAgentModel(agent)
-  return AGENT_SALARY[agent.role] + agent.tokenCount * model.costPerToken
+  return AGENT_SALARY[agent.role] + getAgentTokensForBurn(agent) * model.costPerToken
 }
 
 // ---- Output multiplier ----
@@ -116,6 +120,8 @@ function evaluateTipTrigger(
         case 'runway_below_25k':
           return state.runway < 25_000
         case 'first_agent_fired':
+          return false
+        case 'first_cfo_consult':
           return false
         case 'ipo_triggered':
           return state.phase === 'ipo'

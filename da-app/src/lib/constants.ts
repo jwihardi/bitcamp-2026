@@ -22,6 +22,9 @@ export const AGENT_SALARY: Record<AgentRole, number> = {
   finance: 2800,
 }
 
+export const EVAL_COST = 200
+export const CFO_CONSULT_COST = 500
+
 export const BASE_OUTPUT: Record<
   AgentRole,
   { arr?: number; users?: number; features?: number }
@@ -184,6 +187,14 @@ export const TIP_CARDS: TipCard[] = [
     body: "You hit $100M valuation. Your company is going public — or more likely, getting acquired. That's a win either way. Time to prestige.",
     concept: 'Valuation',
     dismissLabel: "Let's go",
+  },
+  {
+    id: 'first_cfo_consult',
+    trigger: 'first_cfo_consult',
+    title: 'Your CFO is in the building',
+    body: "The AI CFO looks at your whole company and tells you what to prioritize. It also teaches real startup concepts as you play. Use it when you're stuck.",
+    concept: 'Strategic advisory',
+    dismissLabel: 'Got it',
   },
 ]
 

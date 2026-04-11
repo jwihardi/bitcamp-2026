@@ -79,9 +79,12 @@ type GameContextValue = {
   state: GameState
   dispatch: Dispatch<Action>
   activeTipCard: TipCard | null
+  cfoActivityVersion: number
   dismissTipCard: () => void
   markTipFired: (id: string) => void
   hasFiredTip: (id: string) => boolean
+  enqueueTipCard: (tipCard: TipCard | null) => void
+  notifyCFOActivity: () => void
 }
 
 const GameContext = createContext<GameContextValue | null>(null)
@@ -90,6 +93,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, undefined, buildInitialState)
   const [activeTipCard, setActiveTipCard] = useState<TipCard | null>(null)
   const [queuedTipCards, setQueuedTipCards] = useState<TipCard[]>([])
+  const [cfoActivityVersion, setCFOActivityVersion] = useState(0)
   const activeTipCardRef = useRef<TipCard | null>(null)
 
   const firedTipIdsRef = useRef<Set<string>>(new Set())
@@ -121,6 +125,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const dismissTipCard = useCallback(() => {
     setActiveTipCard(null)
+  }, [])
+
+  const notifyCFOActivity = useCallback(() => {
+    setCFOActivityVersion((version) => version + 1)
   }, [])
 
   useEffect(() => {
@@ -237,9 +245,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
         state,
         dispatch,
         activeTipCard,
+        cfoActivityVersion,
         dismissTipCard,
         markTipFired,
         hasFiredTip,
+        enqueueTipCard,
+        notifyCFOActivity,
       }}
     >
       {children}
