@@ -147,6 +147,6 @@ const VALUATION_MULTIPLE = 10  // valuation = arr * 10 at IPO
 
 ## State management approach
 
-Use `useReducer` with a single `dispatch` function. All mutations go through named actions — never mutate state directly. The tick engine, chaos events, and prestige system all dispatch actions into the same reducer.
+Use `useReducer` with a single `dispatch` function. All mutations go through named actions — never mutate state directly. The tick engine, and prestige system all dispatch actions into the same reducer.
 
 Persist `vcChips` and `upgrades` to `localStorage` between sessions. Everything else resets on game over or prestige.

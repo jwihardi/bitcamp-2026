@@ -131,7 +131,7 @@ const newRunState: GameState = {
 }
 ```
 
-Everything else resets: agents, ARR, runway (recalculated), users, features, round, tickCount, penalties, chaos events.
+Everything else resets: agents, ARR, runway (recalculated), users, features, round, tickCount, penalties
 
 ---
 

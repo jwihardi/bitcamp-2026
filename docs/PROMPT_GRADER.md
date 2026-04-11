@@ -1,6 +1,6 @@
 # PROMPT_GRADER.md — Vibe Combinator
 
-The prompt grader turns a raw text prompt into a quality score (0–100). This score is the central mechanic of the game — it determines output multipliers, drift risk, and chaos event vulnerability.
+The prompt grader turns a raw text prompt into a quality score (0–100). This score is the central mechanic of the game — it determines output multipliers, and drift risk.
 
 There are two grading paths: a local heuristic that runs instantly on every keystroke, and an optional Claude API call the player can trigger manually.
 

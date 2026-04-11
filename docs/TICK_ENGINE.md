@@ -1,7 +1,7 @@
 # TICK_ENGINE.md — Vibe Combinator
 
-The tick engine is the heartbeat of the game. Every `tickInterval` milliseconds, it fires and resolves revenue, burn, drift, and chaos rolls in order. Nothing should mutate game state outside of a tick (except direct player actions like editing a prompt or hiring an agent).
-
+The tick engine is the heartbeat of the game. Every `tickInterval` milliseconds, it fires and resolves revenue, burn, and drift. Nothing should mutate game state outside of a tick (except direct player actions like editing a prompt or hiring an agent).
+8
 ---
 
 ## Tick sequence (in order)
@@ -10,13 +10,11 @@ Each tick executes these steps in sequence:
 
 1. **Increment tickCount**
 2. **Resolve agent outputs** — each non-off-task agent produces revenue/users/features
-3. **Apply active penalties** — reduce outputs for any persistent chaos penalties
-4. **Resolve drift rolls** — check each agent for off-task event
-5. **Deduct burn** — salary costs drain runway
-6. **Check milestone progress** — may trigger phase transition
-7. **Roll for chaos event** — random chance to fire a new event (if none active)
-8. **Check tip card triggers** — fire tip card if conditions met
-9. **Check bankruptcy** — if runway <= 0, trigger game over
+3. **Resolve drift rolls** — check each agent for off-task event
+4. **Deduct burn** — salary costs drain runway
+5. **Check milestone progress** — may trigger phase transition
+7. **Check tip card triggers** — fire tip card if conditions met
+8. **Check bankruptcy** — if runway <= 0, trigger game over
 
 ---
 
@@ -99,27 +97,6 @@ Burn mode exits when the milestone is met or the player fires an agent (reducing
 
 ---
 
-## Chaos event roll
-
-Once per tick, after all outputs are resolved, roll for a chaos event. Only fires if:
-- `activeChaosEvent` is null (no event currently active)
-- `tickCount > 10` (grace period at start)
-- Random roll passes
-
-```ts
-const CHAOS_CHANCE_PER_TICK = 0.04  // 4% per tick
-
-function shouldFireChaosEvent(state: GameState): boolean {
-  if (state.activeChaosEvent !== null) return false
-  if (state.tickCount <= 10) return false
-  return Math.random() < CHAOS_CHANCE_PER_TICK
-}
-```
-
-When a chaos event fires, pick one at random from the four types (weighted equally). See `CHAOS_EVENTS.md` for full event definitions.
-
----
-
 ## Implementation notes
 
 - Use `useEffect` with `setInterval` in a `TickEngine` component. Clear the interval on unmount.
@@ -136,7 +113,6 @@ dispatch({
     featuresDelta,
     runwayDelta,    // negative (burn)
     agentUpdates,   // isOffTask flags
-    chaosEvent,     // null or new event
     tipCard,        // null or tip to show
   }
 })

@@ -37,7 +37,6 @@ type TipTrigger =
   | 'first_tick'
   | 'first_low_score'          // any agent drops below 40
   | 'first_drift'              // first off-task event
-  | 'first_chaos_event'        // any chaos event fires
   | 'entered_burn_mode'
   | 'round_advance_seed'
   | 'round_advance_series_a'
@@ -85,14 +84,6 @@ const TIP_CARDS: TipCard[] = [
     body: 'Vague prompts cause drift. When an agent goes off-task, they produce nothing that tick — burning salary with zero return.',
     concept: 'Agent drift',
     dismissLabel: 'Got it',
-  },
-  {
-    id: 'first_chaos_event',
-    trigger: 'first_chaos_event',
-    title: 'Chaos happens',
-    body: 'Real startups deal with unexpected setbacks constantly. Improve the flagged agent\'s prompt to clear the penalty.',
-    concept: 'Operational risk',
-    dismissLabel: 'On it',
   },
   {
     id: 'entered_burn_mode',
@@ -176,7 +167,6 @@ function evaluateTipTriggers(state: GameState, firedTipIds: Set<string>): TipCar
         case 'first_tick':          return state.tickCount === 1
         case 'first_low_score':     return state.agents.some(a => a.qualityScore < 40)
         case 'first_drift':         return state.agents.some(a => a.isOffTask)
-        case 'first_chaos_event':   return state.activeChaosEvent !== null
         case 'entered_burn_mode':   return state.phase === 'burn_mode'
         case 'round_advance_seed':  return state.round === 'seed'
         case 'round_advance_series_a': return state.round === 'series_a'
