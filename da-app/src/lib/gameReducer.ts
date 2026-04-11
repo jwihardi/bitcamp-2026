@@ -106,10 +106,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
       }
     }
 
-    case 'DISMISS_CHAOS_EVENT': {
-      return { ...state, activeChaosEvent: null }
-    }
-
     case 'DISMISS_TIP_CARD': {
       return { ...state, activeTipCard: null }
     }

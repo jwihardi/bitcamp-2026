@@ -28,12 +28,10 @@ export type TipTrigger =
   | 'first_tick'
   | 'first_low_score'
   | 'first_drift'
-  | 'first_chaos_event'
   | 'entered_burn_mode'
   | 'round_advance_seed'
   | 'round_advance_series_a'
   | 'round_advance_series_b'
-  | 'first_penalty_cleared'
   | 'runway_below_25k'
   | 'first_agent_fired'
   | 'ipo_triggered'
@@ -50,25 +48,6 @@ export type Agent = {
   cachedPromptText: string
   driftRisk: boolean
   isOffTask: boolean
-}
-
-export type Penalty = {
-  id: string
-  type: ChaosEventType
-  agentRole: AgentRole
-  description: string
-  active: boolean
-  appliedAt: number
-}
-
-export type ChaosEvent = {
-  id: string
-  type: ChaosEventType
-  agentRole: AgentRole
-  title: string
-  description: string
-  penaltyDescription: string
-  fixThreshold: number
 }
 
 export type TipCard = {
@@ -106,9 +85,7 @@ export type GameState = {
   vcChips: number
   upgrades: Upgrades
 
-  activeChaosEvent: ChaosEvent | null
   activeTipCard: TipCard | null
-  pendingPenalties: Penalty[]
 }
 
 export type TickPayload = {
@@ -118,9 +95,6 @@ export type TickPayload = {
   runwayDelta: number
   burnRate: number
   agentUpdates: { id: string; isOffTask: boolean }[]
-  newChaosEvent: ChaosEvent | null
-  newPenalty: Penalty | null
-  updatedPenalties: Penalty[]
   tipCard: TipCard | null
   phase: GamePhase
   newRound: FundingRound | null
