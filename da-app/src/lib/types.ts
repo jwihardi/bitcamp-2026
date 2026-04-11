@@ -106,7 +106,6 @@ export type GameState = {
   upgrades: Upgrades
 
   activeChaosEvent: ChaosEvent | null
-  activeTipCard: TipCard | null
   pendingPenalties: Penalty[]
 }
 
@@ -147,9 +146,7 @@ export type Action =
       score: number
       cachedPromptText: string
     }
-  | { type: 'SHOW_TIP_CARD'; tipCard: TipCard }
   | { type: 'DISMISS_CHAOS_EVENT' }
-  | { type: 'DISMISS_TIP_CARD' }
   | { type: 'ENTER_BURN_MODE' }
   | { type: 'EXIT_BURN_MODE' }
   | { type: 'GAME_OVER' }

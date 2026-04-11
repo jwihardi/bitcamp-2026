@@ -7,10 +7,11 @@ import {
   useEffect,
   useReducer,
   useRef,
+  useState,
   type Dispatch,
   type ReactNode,
 } from 'react'
-import type { Action, GameState } from '@/lib/types'
+import type { Action, GameState, TipCard } from '@/lib/types'
 import { gameReducer } from '@/lib/gameReducer'
 import {
   BASE_RUNWAY,
@@ -69,6 +70,8 @@ function buildInitialState(): GameState {
 type GameContextValue = {
   state: GameState
   dispatch: Dispatch<Action>
+  activeTipCard: TipCard | null
+  dismissTipCard: () => void
   markTipFired: (id: string) => void
   hasFiredTip: (id: string) => boolean
 }
@@ -77,6 +80,8 @@ const GameContext = createContext<GameContextValue | null>(null)
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(gameReducer, undefined, buildInitialState)
+  const [activeTipCard, setActiveTipCard] = useState<TipCard | null>(null)
+  const [queuedTipCards, setQueuedTipCards] = useState<TipCard[]>([])
 
   const firedTipIdsRef = useRef<Set<string>>(new Set())
 
@@ -88,6 +93,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return firedTipIdsRef.current.has(id)
   }, [])
 
+  const enqueueTipCard = useCallback((tipCard: TipCard | null) => {
+    if (!tipCard) return
+    if (firedTipIdsRef.current.has(tipCard.id)) return
+
+    firedTipIdsRef.current.add(tipCard.id)
+
+    setQueuedTipCards((current) => {
+      if (activeTipCard?.id === tipCard.id) return current
+      if (current.some((queued) => queued.id === tipCard.id)) return current
+      return [...current, tipCard]
+    })
+  }, [activeTipCard])
+
+  const dismissTipCard = useCallback(() => {
+    setActiveTipCard(null)
+  }, [])
+
   useEffect(() => {
     persistCarryOver(state.vcChips, state.upgrades)
   }, [state.vcChips, state.upgrades])
@@ -96,6 +118,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     stateRef.current = state
   }, [state])
+
+  useEffect(() => {
+    if (activeTipCard != null) return
+    if (queuedTipCards.length === 0) return
+
+    const id = window.setTimeout(() => {
+      setActiveTipCard(queuedTipCards[0])
+      setQueuedTipCards((current) => current.slice(1))
+    }, 0)
+
+    return () => window.clearTimeout(id)
+  }, [activeTipCard, queuedTipCards])
 
   useEffect(() => {
     const phase = state.phase
@@ -118,21 +152,27 @@ export function GameProvider({ children }: { children: ReactNode }) {
         firedTipIdsRef.current,
       )
 
-      if (firedTipId) {
-        firedTipIdsRef.current.add(firedTipId)
-      }
-
       dispatch({ type: 'TICK', payload })
+
+      if (firedTipId) {
+        enqueueTipCard(payload.tipCard)
+      }
     }
 
     const id = setInterval(tick, state.tickInterval)
     return () => clearInterval(id)
-  }, [state.tickInterval, state.phase])
+  }, [state.tickInterval, state.phase, enqueueTipCard])
 
   const prevTickCountRef = useRef(state.tickCount)
   useEffect(() => {
     if (state.tickCount === 0 && prevTickCountRef.current !== 0) {
       firedTipIdsRef.current = new Set()
+      const id = window.setTimeout(() => {
+        setActiveTipCard(null)
+        setQueuedTipCards([])
+      }, 0)
+      prevTickCountRef.current = state.tickCount
+      return () => window.clearTimeout(id)
     }
     prevTickCountRef.current = state.tickCount
   }, [state.tickCount])
@@ -142,19 +182,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const previousCount = prevAgentCountRef.current
     prevAgentCountRef.current = state.agents.length
 
-    if (state.activeTipCard) return
     if (previousCount <= state.agents.length) return
 
-    const fireTip = TIP_CARDS.find((tip) => tip.id === 'first_agent_fired')
-    if (!fireTip || firedTipIdsRef.current.has(fireTip.id)) return
+    const id = window.setTimeout(() => {
+      enqueueTipCard(TIP_CARDS.find((tip) => tip.id === 'first_agent_fired') ?? null)
+    }, 0)
 
-    firedTipIdsRef.current.add(fireTip.id)
-    dispatch({ type: 'SHOW_TIP_CARD', tipCard: fireTip })
-  }, [state.activeTipCard, state.agents.length, dispatch])
+    return () => window.clearTimeout(id)
+  }, [state.agents.length, enqueueTipCard])
 
   useEffect(() => {
-    if (state.activeTipCard) return
-
     const firstPendingTip = TIP_CARDS.find((tip) => {
       if (firedTipIdsRef.current.has(tip.id)) return false
 
@@ -174,22 +211,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     })
 
-    if (!firstPendingTip) return
+    const id = window.setTimeout(() => {
+      enqueueTipCard(firstPendingTip ?? null)
+    }, 0)
 
-    firedTipIdsRef.current.add(firstPendingTip.id)
-    dispatch({ type: 'SHOW_TIP_CARD', tipCard: firstPendingTip })
+    return () => window.clearTimeout(id)
   }, [
     state.activeChaosEvent,
-    state.activeTipCard,
     state.agents,
     state.phase,
     state.pendingPenalties,
-    dispatch,
+    enqueueTipCard,
   ])
 
   return (
     <GameContext.Provider
-      value={{ state, dispatch, markTipFired, hasFiredTip }}
+      value={{
+        state,
+        dispatch,
+        activeTipCard,
+        dismissTipCard,
+        markTipFired,
+        hasFiredTip,
+      }}
     >
       {children}
     </GameContext.Provider>

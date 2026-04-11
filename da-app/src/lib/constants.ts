@@ -306,7 +306,6 @@ export const INITIAL_STATE: GameState = {
   vcChips: 0,
   upgrades: INITIAL_UPGRADES,
   activeChaosEvent: null,
-  activeTipCard: null,
   pendingPenalties: [],
 }
 

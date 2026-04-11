@@ -30,7 +30,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
         agents: updatedAgents,
         activeChaosEvent: p.activeChaosEvent,
         pendingPenalties: p.pendingPenalties,
-        activeTipCard: state.activeTipCard ?? p.tipCard,
         phase: p.phase,
         round: p.newRound ?? state.round,
         agentSlots: p.newAgentSlots ?? state.agentSlots,
@@ -105,17 +104,6 @@ export function gameReducer(state: GameState, action: Action): GameState {
               }
             : a,
         ),
-      }
-    }
-
-    case 'DISMISS_TIP_CARD': {
-      return { ...state, activeTipCard: null }
-    }
-
-    case 'SHOW_TIP_CARD': {
-      return {
-        ...state,
-        activeTipCard: state.activeTipCard ?? action.tipCard,
       }
     }
 
