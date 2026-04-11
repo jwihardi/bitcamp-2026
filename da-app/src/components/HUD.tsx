@@ -14,7 +14,6 @@ function fmtCount(n: number) {
   return n.toLocaleString()
 }
 
-
 export function HUD() {
   const { state, dispatch } = useGame()
   const { round, arr, runway, users, features, vcChips, upgrades, phase } = state

@@ -39,15 +39,17 @@ export function AgentEditModal({ agent, onClose }: Props) {
   }
 
   async function handleGradeWithAI() {
+    // Snapshot the prompt now — the user may keep typing during the API call.
+    const promptSnapshot = agent.prompt
     setGrading(true)
     setGradeError(null)
     try {
-      const result = await gradeWithClaude(agent.prompt, agent.role)
+      const result = await gradeWithClaude(promptSnapshot, agent.role)
       dispatch({
         type: 'GRADE_AGENT_AI',
         agentId: agent.id,
         score: result.score,
-        cachedPromptText: agent.prompt,
+        cachedPromptText: promptSnapshot,
       })
     } catch {
       setGradeError('Grade failed — retry?')

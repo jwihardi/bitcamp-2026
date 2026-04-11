@@ -56,7 +56,7 @@ export function TipCard() {
         onClick={dismiss}
       />
       <aside
-        className={`fixed bottom-4 right-4 z-50 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-black/10 bg-white p-4 text-left shadow-xl transition-all duration-250 ease-out ${
+        className={`fixed bottom-4 right-4 z-50 w-[min(320px,calc(100vw-2rem))] rounded-2xl border border-black/10 bg-white p-4 text-left shadow-xl transition-all duration-[250ms] ease-out ${
           isVisible ? 'translate-y-0 opacity-100' : 'translate-y-5 opacity-0'
         }`}
       >

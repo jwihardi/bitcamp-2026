@@ -52,7 +52,6 @@ export type MilestoneConfig = {
   users?: number
   features?: number
   agentSlotsUnlocked: number
-  timeLimit: number
   label: string
 }
 
@@ -60,34 +59,29 @@ export const ROUNDS: Record<FundingRound, MilestoneConfig> = {
   pre_seed: {
     arr: 100_000,
     agentSlotsUnlocked: 2,
-    timeLimit: 300,
     label: 'Pre-seed',
   },
   seed: {
     arr: 500_000,
     features: 1,
     agentSlotsUnlocked: 4,
-    timeLimit: 420,
     label: 'Seed',
   },
   series_a: {
     arr: 2_000_000,
     users: 1000,
     agentSlotsUnlocked: 6,
-    timeLimit: 480,
     label: 'Series A',
   },
   series_b: {
     arr: 10_000_000,
     features: 3,
     agentSlotsUnlocked: 8,
-    timeLimit: 600,
     label: 'Series B',
   },
   ipo: {
     arr: 0,
     agentSlotsUnlocked: 8,
-    timeLimit: 720,
     label: 'IPO',
   },
 }
