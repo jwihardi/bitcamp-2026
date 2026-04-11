@@ -8,6 +8,10 @@ import {
   UPGRADE_COSTS,
 } from './constants'
 
+function computeImmediateBurnRate(state: GameState): number {
+  return state.agents.reduce((sum, agent) => sum + AGENT_SALARY[agent.role], 0)
+}
+
 export function gameReducer(state: GameState, action: Action): GameState {
   switch (action.type) {
     case 'TICK': {
@@ -38,18 +42,33 @@ export function gameReducer(state: GameState, action: Action): GameState {
     }
 
     case 'HIRE_AGENT': {
+      if (state.agents.length >= state.agentSlots) return state
+
+      const agents = [...state.agents, action.agent]
+      const runway = Math.max(0, state.runway - AGENT_SALARY[action.agent.role])
+
       return {
         ...state,
-        agents: [...state.agents, action.agent],
-        runway: Math.max(0, state.runway - AGENT_SALARY[action.agent.role]),
+        agents,
+        runway,
+        burnRate: computeImmediateBurnRate({ ...state, agents }),
+        phase: runway <= 0 ? 'game_over' : state.phase,
       }
     }
 
     case 'FIRE_AGENT': {
+      const agents = state.agents.filter((a) => a.id !== action.agentId)
+      const nextPhase = state.phase === 'burn_mode' ? 'playing' : state.phase
+
       return {
         ...state,
-        agents: state.agents.filter((a) => a.id !== action.agentId),
-        phase: state.phase === 'burn_mode' ? 'playing' : state.phase,
+        agents,
+        burnRate: computeImmediateBurnRate({ ...state, agents }),
+        phase: nextPhase,
+        tickInterval:
+          state.phase === 'burn_mode'
+            ? TICK_INTERVALS[state.upgrades.fasterTicks]
+            : state.tickInterval,
       }
     }
 
