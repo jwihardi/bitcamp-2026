@@ -5,6 +5,7 @@ import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 import { AgentItem } from './AgentItem'
 import { Button } from './Button'
 import { Text } from './Text'
+import { Tooltip } from './Tooltip'
 
 function formatCost(n: number): string {
   if (n >= 1e9) return '$' + (n / 1e9).toFixed(1) + 'B'
@@ -24,7 +25,15 @@ const MODEL_EMOJI: Record<string, string> = {
   quanta_s:     '⚡',
   synapse_pro:  '🧠',
   oracle_ultra: '🔮',
-  oracle_apex:  '🔮',
+  oracle_apex:  '✨',
+}
+
+const MODEL_DESCRIPTION: Record<string, string> = {
+  nimbus_1:     'Entry-level model. Reliable for simple tasks with low token costs.',
+  quanta_s:     'Mid-tier model with noticeably better output quality. Good efficiency.',
+  synapse_pro:  'High-quality model suited for complex agent workflows.',
+  oracle_ultra: 'Top-tier model with maximum quality ceiling. Heavy token cost.',
+  oracle_apex:  'Frontier-grade model. Exceptional quality — but expensive to run.',
 }
 
 type RightPanelProps = {
@@ -96,10 +105,32 @@ export function RightPanel({
               >
                 {/* Emoji + info */}
                 <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                  <span className="text-2xl leading-none shrink-0" aria-hidden>
-                    {MODEL_EMOJI[model.id] ?? '🤖'}
-                  </span>
-                  <div className="min-w-0">
+                  <Tooltip
+                    content={
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl leading-none">{MODEL_EMOJI[model.id] ?? '🤖'}</span>
+                          <Text size="md" weight="bold" style={{ color: '#1e1e1e' }}>{model.name}</Text>
+                          {!owned && (
+                            <Text size="sm" weight="semibold" className="ml-auto" style={{ color: 'var(--sds-color-text-brand-tertiary,#1fc46a)' }}>
+                              {formatCost(model.unlockCost)}
+                            </Text>
+                          )}
+                        </div>
+                        <Text size="sm" style={{ color: '#666', lineHeight: 1.4 }}>
+                          {MODEL_DESCRIPTION[model.id] ?? ''}
+                        </Text>
+                        <Text size="sm" style={{ color: '#b3b3b3', lineHeight: 1.4 }}>
+                          ×{model.qualityMultiplier.toFixed(1)} quality · ${model.costPerToken}/tok
+                        </Text>
+                      </div>
+                    }
+                  >
+                    <span className="text-2xl leading-none shrink-0 cursor-default" aria-hidden>
+                      {MODEL_EMOJI[model.id] ?? '🤖'}
+                    </span>
+                  </Tooltip>
+                  <div className="min-w-0 flex-1">
                     <Text as="p" size="md" weight="bold" style={{ color: '#1e1e1e' }}>
                       {model.name}
                     </Text>
