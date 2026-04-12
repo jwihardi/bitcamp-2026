@@ -76,6 +76,12 @@ export default function NewUIPage() {
   const [buyingAgentId, setBuyingAgentId] = useState<IdleAgentType | null>(null)
   const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
 
+  // Permanently unlocked agents — once tokens ever reach an agent's unlockThreshold,
+  // the agent stays on the sidebar forever (even if tokens later drop below threshold)
+  const [unlockedAgentIds, setUnlockedAgentIds] = useState<Set<IdleAgentType>>(
+    () => new Set(INITIAL_AGENTS.filter((a) => a.unlockThreshold === 0).map((a) => a.id)),
+  )
+
   // CTO panel state
   const [ctoReport, setCtoReport] = useState<CtoReport | null>(null)
   const [ctoLoading, setCtoLoading] = useState(false)
@@ -389,6 +395,21 @@ export default function NewUIPage() {
     setClickPower(1 + Math.floor(totalAgents * 0.5))
   }, [agents])
 
+  // Permanently unlock agents once tokens cross their threshold (one-way latch)
+  useEffect(() => {
+    setUnlockedAgentIds((prev) => {
+      const next = new Set(prev)
+      let changed = false
+      for (const agent of agents) {
+        if (!next.has(agent.id) && tokens >= agent.unlockThreshold) {
+          next.add(agent.id)
+          changed = true
+        }
+      }
+      return changed ? next : prev
+    })
+  }, [tokens, agents])
+
   // Stage advance
   const advanceStage = useCallback(() => {
     const next = FUNDING_STAGES[currentStageIndex + 1]
@@ -479,6 +500,7 @@ export default function NewUIPage() {
           agents={agents}
           models={models}
           tokens={tokens}
+          unlockedAgentIds={unlockedAgentIds}
           getCost={getCost}
           getAgentQuality={getAgentQuality}
           getUsersPerSecond={getUsersPerSecond}
