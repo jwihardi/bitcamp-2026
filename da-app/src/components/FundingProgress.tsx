@@ -16,7 +16,7 @@ export function FundingProgress({ stage }: Props) {
         <Fragment key={label}>
           <div className="flex flex-col items-center gap-2 shrink-0">
             <ProgressStep variant={i <= stage ? 'default' : 'unmet'} />
-            <span className="text-sm leading-[1.4] text-foreground whitespace-nowrap font-normal font-sans">
+            <span className="text-sm leading-[1.4] text-black whitespace-nowrap font-normal font-sans">
               {label}
             </span>
           </div>

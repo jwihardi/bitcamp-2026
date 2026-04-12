@@ -13,6 +13,7 @@ import { GameProvider } from '@/context/GameContext'
 import { HeaderView } from '@/components/Header'
 import { LeftPanel } from '@/components/LeftPanel'
 import { RightPanel } from '@/components/RightPanel'
+import { StatisticsPanel } from '@/components/StatisticsPanel'
 
 // ---- copied from page.tsx ----
 
@@ -40,6 +41,7 @@ export default function NewUIPage() {
   const [models] = useState<Model[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).models)
   const [clickPower, setClickPower] = useState(1)
   const [totalEarned, setTotalEarned] = useState(0)
+  const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
 
   const gameSpeed = 1
@@ -155,7 +157,10 @@ export default function NewUIPage() {
     const interval = setInterval(() => {
       const earned = (netIncome / 10) * gameSpeed
       setTokens((t) => t + earned)
-      if (netIncome > 0) setTotalEarned((e) => e + earned)
+      if (netIncome > 0) {
+        setTotalEarned((e) => e + earned)
+        setLifetimeRevenue((r) => r + earned)
+      }
     }, 100)
     return () => clearInterval(interval)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -187,12 +192,12 @@ export default function NewUIPage() {
 
   // ---- MoneyPile props ----
 
-  const nextStage = FUNDING_STAGES[currentStageIndex + 1]
-  const percentage = nextStage
-    ? Math.min(100, (userbase / nextStage.userRequirement) * 100)
-    : 100
+  const nextStage = FUNDING_STAGES[currentStageIndex + 1] ?? null
+  const percentage = (currentStageIndex / (FUNDING_STAGES.length - 1)) * 100
 
   const usersPerSecond = getTotalUsersPerSecond()
+  const netIncome = getRevenueFromUsers() - getTotalOperatingCost()
+  const unlockedModels = models.filter((m) => m.unlocked)
 
   const companyName = (() => {
     const firstHired = agents.find((a) => a.count > 0)
@@ -214,8 +219,22 @@ export default function NewUIPage() {
             onGoldButtonClick={handleClick}
           />
         </div>
-        {/* Center pane */}
-        <div className="flex-1" />
+        {/* Center pane — Statistics */}
+        <div className="flex-1 overflow-y-auto" style={{ borderRight: '1px solid #d9d9d9' }}>
+          <StatisticsPanel
+            tokens={tokens}
+            totalEarned={totalEarned}
+            lifetimeRevenue={lifetimeRevenue}
+            usersPerSecond={usersPerSecond}
+            clickPower={clickPower}
+            currentStageIndex={currentStageIndex}
+            userbase={userbase}
+            netIncome={netIncome}
+            unlockedModels={unlockedModels}
+            totalModels={models.length}
+            nextStage={nextStage}
+          />
+        </div>
         {/* Right pane — still uses GameContext for agent/model shop */}
         <GameProvider>
           <RightPanel />

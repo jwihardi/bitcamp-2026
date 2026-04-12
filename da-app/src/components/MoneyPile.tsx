@@ -36,8 +36,24 @@ export function MoneyPile({
       className={`relative w-full overflow-hidden ${className ?? ''}`}
       style={{ height: '100dvh', minWidth: '360px' }}
     >
-      {/* White base + radial vignette matching Figma mix-blend-multiply gradient */}
+      {/* White base */}
       <div className="absolute inset-0 bg-white" />
+
+      {/* Money pile — background fill, slides up from bottom as pct increases */}
+      <img
+        src="/money-pile.png"
+        alt=""
+        aria-hidden
+        className="absolute bottom-0 w-full h-full object-cover object-bottom pointer-events-none"
+        style={{
+          transform: `translateY(${100 - pct}%)`,
+          transition: 'transform 0.5s ease-out',
+          filter: 'blur(3px)',
+          zIndex: 0,
+        }}
+      />
+
+      {/* Radial vignette */}
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
@@ -45,11 +61,12 @@ export function MoneyPile({
             'radial-gradient(ellipse at 50% 32%, #fff 0%, #dfdfdf 15%, #bfbfbf 28%, #808080 50%, #282828 75%, #000 100%)',
           opacity: 0.5,
           mixBlendMode: 'multiply',
+          zIndex: 1,
         }}
       />
 
       {/* Foreground: badge + label + coin */}
-      <div className="relative z-10 flex flex-col items-center gap-2 pt-8 px-4">
+      <div className="relative flex flex-col items-center gap-2 pt-8 px-4" style={{ zIndex: 2 }}>
         {/* Company name badge */}
         <div className="bg-black/20 rounded-lg px-16 py-[2px]">
           <p
@@ -77,16 +94,6 @@ export function MoneyPile({
         <GoldButton size={251} onClick={onGoldButtonClick} />
       </div>
 
-      {/* Money pile — slides up from bottom as pct increases */}
-      <img
-        src="/money-pile.png"
-        alt="Money pile"
-        className="absolute bottom-0 w-full h-full object-cover object-bottom pointer-events-none"
-        style={{
-          transform: `translateY(${100 - pct}%)`,
-          transition: 'transform 0.5s ease-out',
-        }}
-      />
     </div>
   )
 }
