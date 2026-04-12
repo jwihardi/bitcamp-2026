@@ -19,6 +19,8 @@ import { StatisticsPanel } from '@/components/StatisticsPanel'
 import { AgentEditorModal } from '@/components/AgentEditorModal'
 import { CTOPanel, type CtoReport } from '@/components/CTOPanel'
 
+type HistoryPoint = { time: number; value: number }
+
 // ---- helpers ----
 
 async function evaluateIdlePrompt(
@@ -69,6 +71,10 @@ export default function NewUIPage() {
   const [companyName, setCompanyName] = useState('Your Company')
   const [totalEarned, setTotalEarned] = useState(0)
   const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
+  const [lifetimeCosts, setLifetimeCosts] = useState(0)
+  const [elapsedGameSeconds, setElapsedGameSeconds] = useState(0)
+  const [lifetimeProfitHistory, setLifetimeProfitHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
+  const [lifetimeCostHistory, setLifetimeCostHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   // Modal state
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
@@ -96,6 +102,8 @@ export default function NewUIPage() {
   const levelUpAudioRef = useRef<HTMLAudioElement | null>(null)
   const userLevelUpAudioRef = useRef<HTMLAudioElement | null>(null)
   const prevUserMilestoneIndexRef = useRef(0)
+  const lifetimeProfitRef = useRef(0)
+  const lifetimeCostRef = useRef(0)
 
   const gameSpeed: number = 1
 
@@ -117,6 +125,32 @@ export default function NewUIPage() {
       userAudio.src = ''
       userLevelUpAudioRef.current = null
     }
+  }, [])
+
+  useEffect(() => {
+    lifetimeProfitRef.current = lifetimeRevenue
+  }, [lifetimeRevenue])
+
+  useEffect(() => {
+    lifetimeCostRef.current = lifetimeCosts
+  }, [lifetimeCosts])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedGameSeconds((seconds) => {
+        const next = seconds + 1
+        setLifetimeProfitHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: lifetimeProfitRef.current }
+          return [...prev, point].slice(-120)
+        })
+        setLifetimeCostHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: lifetimeCostRef.current }
+          return [...prev, point].slice(-120)
+        })
+        return next
+      })
+    }, 1000)
+    return () => clearInterval(interval)
   }, [])
 
   // ---- reputation upgrade purchase ----
@@ -408,7 +442,9 @@ export default function NewUIPage() {
 
     const interval = setInterval(() => {
       const earned = (netIncome / 10) * gameSpeed
+      const incurredCosts = (costs / 10) * gameSpeed
       setTokens((t) => t + earned)
+      setLifetimeCosts((c) => c + incurredCosts)
       if (netIncome > 0) {
         setTotalEarned((e) => e + earned)
         setLifetimeRevenue((r) => r + earned)
@@ -544,6 +580,10 @@ export default function NewUIPage() {
               tokens={tokens}
               totalEarned={totalEarned}
               lifetimeRevenue={lifetimeRevenue}
+              lifetimeCosts={lifetimeCosts}
+              elapsedGameSeconds={elapsedGameSeconds}
+              lifetimeProfitHistory={lifetimeProfitHistory}
+              lifetimeCostHistory={lifetimeCostHistory}
               usersPerSecond={usersPerSecond}
               clickPower={clickPower}
               currentStageIndex={currentStageIndex}

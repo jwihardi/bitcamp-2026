@@ -1,11 +1,16 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo } from 'react'
 import type { Model, FundingStage } from '../app/game-config'
 import { FundingProgress } from './FundingProgress'
 import { ProgressBar } from './ProgressBar'
 import { Tooltip } from './Tooltip'
 import { Text } from './Text'
+
+type HistoryPoint = {
+  time: number
+  value: number
+}
 
 const MODEL_EMOJI: Record<string, string> = {
   nimbus_1:     '☁️',
@@ -86,10 +91,146 @@ function StatRow({ label, value, stripe }: StatRowProps) {
   )
 }
 
+type TrendChartCardProps = {
+  title: string
+  total: number
+  history: HistoryPoint[]
+  lineColor: string
+  areaColor: string
+}
+
+function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendChartCardProps) {
+  const width = 720
+  const height = 180
+  const padding = 14
+
+  const points = useMemo(() => {
+    if (history.length === 0) return [{ x: padding, y: height - padding }]
+    const values = history.map((point) => point.value)
+    const min = Math.min(...values)
+    const max = Math.max(...values)
+    const span = Math.max(1, max - min)
+    const stepX = (width - padding * 2) / Math.max(1, history.length - 1)
+
+    return history.map((point, index) => {
+      const x = padding + index * stepX
+      const normalized = (point.value - min) / span
+      const y = height - padding - normalized * (height - padding * 2)
+      return { x, y }
+    })
+  }, [history])
+
+  const linePath = useMemo(() => {
+    if (points.length === 0) return ''
+    return points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ')
+  }, [points])
+
+  const areaPath = useMemo(() => {
+    if (points.length === 0) return ''
+    const first = points[0]
+    const last = points[points.length - 1]
+    return `${linePath} L ${last.x} ${height - padding} L ${first.x} ${height - padding} Z`
+  }, [height, linePath, padding, points])
+
+  const latest = history[history.length - 1]?.value ?? 0
+  const start = history[0]?.value ?? 0
+  const delta = latest - start
+
+  return (
+    <div
+      className="flex w-full flex-col gap-3 rounded-xl px-3 py-3"
+      style={{
+        border: '1px solid #d9d9d9',
+        boxShadow: '0px 2px 0px 0px #cdcdcd',
+        background: '#fbfbfb',
+      }}
+    >
+      <div className="flex items-end justify-between gap-3">
+        <div className="flex flex-col">
+          <p
+            style={{
+              fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)',
+              fontSize: 20,
+              fontWeight: 600,
+              lineHeight: 1.2,
+              color: 'black',
+            }}
+          >
+            {title}
+          </p>
+          <p
+            style={{
+              fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+              fontSize: 14,
+              fontWeight: 700,
+              lineHeight: 1.3,
+              color: '#6b7280',
+            }}
+          >
+            Total ${formatNumber(total)}
+          </p>
+        </div>
+        <p
+          style={{
+            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+            fontSize: 14,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            color: delta >= 0 ? '#1fc46a' : '#ef4444',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {delta >= 0 ? '+' : '-'}${formatNumber(Math.abs(delta))} in window
+        </p>
+      </div>
+
+      <div className="w-full overflow-hidden rounded-lg" style={{ background: '#f5f5f5' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-[180px] w-full" preserveAspectRatio="none" aria-label={`${title} trend chart`}>
+          <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#d4d4d4" strokeWidth={1} />
+          <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth={1} />
+          <line x1={padding} y1={(height - padding * 2) * 0.33 + padding} x2={width - padding} y2={(height - padding * 2) * 0.33 + padding} stroke="#ececec" strokeWidth={1} />
+          <line x1={padding} y1={(height - padding * 2) * 0.66 + padding} x2={width - padding} y2={(height - padding * 2) * 0.66 + padding} stroke="#ececec" strokeWidth={1} />
+          {areaPath && <path d={areaPath} fill={areaColor} />}
+          {linePath && <path d={linePath} fill="none" stroke={lineColor} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />}
+        </svg>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <p
+          style={{
+            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+            fontSize: 13,
+            fontWeight: 600,
+            lineHeight: 1.3,
+            color: '#9ca3af',
+          }}
+        >
+          Start ${formatNumber(start)}
+        </p>
+        <p
+          style={{
+            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+            fontSize: 13,
+            fontWeight: 700,
+            lineHeight: 1.3,
+            color: '#4b5563',
+          }}
+        >
+          Latest ${formatNumber(latest)}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 export type StatisticsPanelProps = {
   tokens: number
   totalEarned: number
   lifetimeRevenue: number
+  lifetimeCosts: number
+  elapsedGameSeconds: number
+  lifetimeProfitHistory: HistoryPoint[]
+  lifetimeCostHistory: HistoryPoint[]
   usersPerSecond: number
   clickPower: number
   currentStageIndex: number
@@ -104,6 +245,10 @@ export function StatisticsPanel({
   tokens,
   totalEarned,
   lifetimeRevenue,
+  lifetimeCosts,
+  elapsedGameSeconds,
+  lifetimeProfitHistory,
+  lifetimeCostHistory,
   usersPerSecond,
   clickPower,
   currentStageIndex,
@@ -113,20 +258,13 @@ export function StatisticsPanel({
   totalModels,
   nextStage,
 }: StatisticsPanelProps) {
-  const [elapsedSeconds, setElapsedSeconds] = useState(0)
-
-  useEffect(() => {
-    const id = setInterval(() => setElapsedSeconds((s) => s + 1), 1000)
-    return () => clearInterval(id)
-  }, [])
-
   const generalRows: Array<{ label: string; value: string }> = [
     { label: 'Cash in bank:', value: `$${formatNumber(tokens)}` },
     { label: 'Money earned (this startup):', value: `$${formatNumber(totalEarned)}` },
     { label: 'Money earned (all time):', value: `$${formatNumber(lifetimeRevenue)}` },
     { label: 'Users per second:', value: formatNumber(usersPerSecond) },
     { label: 'User attract clicks:', value: formatNumber(clickPower) },
-    { label: 'Time elapsed:', value: formatElapsed(elapsedSeconds) },
+    { label: 'Time elapsed:', value: formatElapsed(elapsedGameSeconds) },
   ]
 
   const usersPct = nextStage
@@ -356,34 +494,28 @@ export function StatisticsPanel({
         </div>
       </div>
 
-      {/* Lifetime profits — placeholder (no graph yet) */}
+      {/* Lifetime profits */}
       <div className="flex flex-col gap-4 items-start w-full shrink-0">
         <SectionHeading>Lifetime profits</SectionHeading>
-        <p
-          style={{
-            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
-            fontSize: 14,
-            fontWeight: 400,
-            color: '#9ca3af',
-          }}
-        >
-          Chart coming soon
-        </p>
+        <TrendChartCard
+          title="Net profit"
+          total={lifetimeRevenue}
+          history={lifetimeProfitHistory}
+          lineColor="#1fc46a"
+          areaColor="rgba(31,196,106,0.16)"
+        />
       </div>
 
-      {/* Lifetime costs — placeholder (no graph yet) */}
+      {/* Lifetime costs */}
       <div className="flex flex-col gap-4 items-start w-full shrink-0">
         <SectionHeading>Lifetime costs</SectionHeading>
-        <p
-          style={{
-            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
-            fontSize: 14,
-            fontWeight: 400,
-            color: '#9ca3af',
-          }}
-        >
-          Chart coming soon
-        </p>
+        <TrendChartCard
+          title="Operating cost"
+          total={lifetimeCosts}
+          history={lifetimeCostHistory}
+          lineColor="#f97316"
+          areaColor="rgba(249,115,22,0.16)"
+        />
       </div>
     </div>
   )
