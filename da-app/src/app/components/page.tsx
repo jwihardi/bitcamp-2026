@@ -1,3 +1,6 @@
+'use client'
+
+import { MoneyPile } from '@/components/MoneyPile'
 import { ProgressStep } from '@/components/ProgressStep'
 import { ProgressStem } from '@/components/ProgressStem'
 import { ProgressBar } from '@/components/ProgressBar'
@@ -72,6 +75,25 @@ export default function ComponentsPage() {
         <div className="flex gap-4 items-start flex-wrap">
           {Object.values(MODELS).map((model) => (
             <ModelShopItem key={model.id} model={model} />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">MoneyPile</h2>
+        <div className="flex gap-6 items-start flex-wrap">
+          {[0, 25, 50, 75, 100].map(pct => (
+            <div key={pct} className="flex flex-col gap-1 items-center">
+              <span className="text-xs text-neutral-400">{pct}%</span>
+              <div className="w-[360px]">
+                <MoneyPile
+                  percentage={pct}
+                  companyName="Sales Bot & Co."
+                  usersPerSecond={pct * 300}
+                  onGoldButtonClick={() => console.log('gold button clicked', pct)}
+                />
+              </div>
+            </div>
           ))}
         </div>
       </section>
