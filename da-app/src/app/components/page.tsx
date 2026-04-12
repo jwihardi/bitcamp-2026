@@ -10,6 +10,7 @@ import { HeaderButton } from '@/components/HeaderButton'
 import { ModelShopItem } from '@/components/ModelShopItem'
 import { GoldButton } from '@/components/GoldButton'
 import { AgentItem } from '@/components/AgentItem'
+import { Button } from '@/components/Button'
 import { MODELS } from '@/lib/constants'
 import type { Agent } from '@/lib/types'
 
@@ -110,6 +111,30 @@ export default function ComponentsPage() {
           <FundingProgress stage={0} />
           <FundingProgress stage={2} />
           <FundingProgress stage={5} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">Button</h2>
+        <div className="flex flex-col gap-4">
+          {/* Medium */}
+          <div className="flex gap-3 items-center flex-wrap">
+            <Button label="Primary" variant="Primary" size="Medium" />
+            <Button label="Neutral" variant="Neutral" size="Medium" />
+            <Button label="Subtle"  variant="Subtle"  size="Medium" />
+            <Button label="Disabled" variant="Primary" size="Medium" disabled />
+            <Button label="Disabled" variant="Neutral" size="Medium" disabled />
+            <Button label="Disabled" variant="Subtle"  size="Medium" disabled />
+          </div>
+          {/* Small */}
+          <div className="flex gap-3 items-center flex-wrap">
+            <Button label="Primary" variant="Primary" size="Small" />
+            <Button label="Neutral" variant="Neutral" size="Small" />
+            <Button label="Subtle"  variant="Subtle"  size="Small" />
+            <Button label="Disabled" variant="Primary" size="Small" disabled />
+            <Button label="Disabled" variant="Neutral" size="Small" disabled />
+            <Button label="Disabled" variant="Subtle"  size="Small" disabled />
+          </div>
         </div>
       </section>
 
