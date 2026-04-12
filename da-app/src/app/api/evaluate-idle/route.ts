@@ -99,22 +99,39 @@ The player wrote this prompt for their ${displayName}:
 ${promptBlock}
 </prompt>
 
-Judge how effective this prompt is for a ${displayName} specifically — not a generic agent. A great chatbot prompt is different from a great image generator prompt.
+Your job is to score how well this prompt would actually direct a ${displayName} to produce useful, specific output. Be harsh — most prompts are bad.
+
+SCORE (0–100) — use this scale exactly:
+  0   : Nonsense, gibberish, slang, profanity, or completely unrelated to the agent's role. Examples: "sigma balls", "asdfgh", "lol idk", "buy me a car".
+  1–5 : Recognisable words but zero actionable direction. Examples: "make me money", "do good things", "be helpful", "generate stuff".
+  6–15: Names a vague goal with no constraints, audience, format, or method. Examples: "answer questions", "make images", "write code", "analyze data".
+  16–35: Has a real goal but missing critical specifics — who, what format, what constraints, what success looks like.
+  36–60: Clear goal with some specifics. Missing at least one key dimension (tone, format, scope, or failure condition).
+  61–80: Solid, specific, role-appropriate instructions. Covers goal, method, and at least one constraint.
+  81–100: Excellent — specific goal, clear method, defined constraints, handles edge cases or specifies output format.
+
+IMPORTANT — grandiose but vague prompts score LOW and cost HIGH tokens:
+  A prompt like "build me Facebook" or "make the best AI ever" or "generate a viral app" scores 0–5 because it gives the agent no actionable direction, but it implies a massive open-ended task so estimatedTokensPerTick should be very high (2000–5000+). This is the worst outcome: expensive and useless.
+
+TOKEN COST — estimate tokens the agent would actually consume per invocation:
+  Short, focused prompts = fewer tokens (100–400).
+  Long or complex prompts = more tokens (500–2000).
+  Vague, open-ended, or grandiose prompts with no scope = very high tokens (2000–6000) because the agent flails without guidance.
 
 Respond with ONLY valid JSON. No markdown. No code fences.
 {
-  "score": <0-100, how effective this prompt is for a ${displayName}>,
-  "estimatedTokensPerTick": <integer, estimate tokens consumed per invocation>,
-  "estimatedRevenuePerTick": <integer, estimated dollar output — ${AGENT_OUTPUT_UNIT[agentType]}>,
+  "score": <0-100, see scale above>,
+  "estimatedTokensPerTick": <integer, tokens consumed per invocation — higher for vague/complex, lower for focused>,
+  "estimatedRevenuePerTick": <integer, estimated dollar output — ${AGENT_OUTPUT_UNIT[agentType]} — proportional to score, near 0 for bad prompts>,
   "tokenEfficiency": <float rounded to 2 decimals, estimatedRevenuePerTick / estimatedTokensPerTick>,
-  "explanation": "<one sentence on the biggest strength or weakness of this prompt, max 20 words>",
+  "explanation": "<one sentence naming the exact reason this prompt is effective or ineffective, max 20 words>",
   "tips": [
-    "<specific, actionable change #1 the player can make RIGHT NOW to improve this exact prompt — e.g. 'Add a response length limit like: reply in 2 sentences max'>",
-    "<specific, actionable change #2>"
+    "<specific, actionable edit #1 — quote the exact word or phrase to add/change, not generic advice>",
+    "<specific, actionable edit #2>"
   ],
   "keywords": ["<power word or phrase a strong ${displayName} prompt should include>", "<another>", "<another>"]
 }
-Tips must be concrete edits, not vague advice. Bad tip: "be more specific". Good tip: "specify the target audience, e.g. 'for first-time users'".
+Tips must name concrete changes. Bad: "be more specific". Good: "add 'reply in 2 sentences max' to constrain output length".
 Keywords are 2-5 words or short phrases the player should weave into their prompt to signal intent clearly to the model.`
 }
 

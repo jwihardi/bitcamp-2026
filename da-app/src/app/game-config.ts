@@ -85,7 +85,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'chatbot', name: 'Chatbot Agent', emoji: '💬',
     baseCost: 15, baseUsersPerSecond: 0.8, baseTokensPerTask: 400,
-    count: 0, multiplier: 1.15, unlockThreshold: 0, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 0, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(43, 127, 255) 0%, rgb(0, 184, 219) 100%)',
     buttonGrad: 'linear-gradient(to right, #2b7fff, #00b8db)',
     lastEvaluation: null, lastPrompt: '',
@@ -93,7 +93,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'image', name: 'Image Generator', emoji: '🎨',
     baseCost: 120, baseUsersPerSecond: 6, baseTokensPerTask: 600,
-    count: 0, multiplier: 1.15, unlockThreshold: 100, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 100, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(173, 70, 255) 0%, rgb(246, 51, 154) 100%)',
     buttonGrad: 'linear-gradient(to right, #ad46ff, #f6339a)',
     lastEvaluation: null, lastPrompt: '',
@@ -101,7 +101,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'code', name: 'Code Assistant', emoji: '⚡',
     baseCost: 1500, baseUsersPerSecond: 40, baseTokensPerTask: 2500,
-    count: 0, multiplier: 1.15, unlockThreshold: 800, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 800, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(34, 197, 94) 0%, rgb(16, 185, 129) 100%)',
     buttonGrad: 'linear-gradient(to right, #22c55e, #10b981)',
     lastEvaluation: null, lastPrompt: '',
@@ -109,7 +109,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'data', name: 'Data Analyst', emoji: '📊',
     baseCost: 18000, baseUsersPerSecond: 200, baseTokensPerTask: 2000,
-    count: 0, multiplier: 1.15, unlockThreshold: 8000, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 8000, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(249, 115, 22) 0%, rgb(245, 158, 11) 100%)',
     buttonGrad: 'linear-gradient(to right, #f97316, #f59e0b)',
     lastEvaluation: null, lastPrompt: '',
@@ -117,7 +117,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'research', name: 'Research Agent', emoji: '🔬',
     baseCost: 200000, baseUsersPerSecond: 1000, baseTokensPerTask: 4000,
-    count: 0, multiplier: 1.15, unlockThreshold: 80000, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 80000, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(99, 102, 241) 0%, rgb(139, 92, 246) 100%)',
     buttonGrad: 'linear-gradient(to right, #6366f1, #8b5cf6)',
     lastEvaluation: null, lastPrompt: '',
@@ -125,7 +125,7 @@ export const INITIAL_AGENTS: Agent[] = [
   {
     id: 'orchestrator', name: 'ML Orchestrator', emoji: '🤖',
     baseCost: 2000000, baseUsersPerSecond: 5000, baseTokensPerTask: 6000,
-    count: 0, multiplier: 1.15, unlockThreshold: 800000, promptQuality: 50, selectedModel: 'nimbus_1',
+    count: 0, multiplier: 1.15, unlockThreshold: 800000, promptQuality: 0, selectedModel: 'nimbus_1',
     iconGrad: 'linear-gradient(135deg, rgb(239, 68, 68) 0%, rgb(244, 63, 94) 100%)',
     buttonGrad: 'linear-gradient(to right, #ef4444, #f43f5e)',
     lastEvaluation: null, lastPrompt: '',
