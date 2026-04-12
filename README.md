@@ -1,32 +1,32 @@
-# Vibe Combinator
+# AI Agent Empire
 
-> **Build the AI startup. Write the prompts. Don't go bankrupt.**
+> **Build the AI empire. Write the prompts. Scale to IPO.**
 
-A browser-based startup simulation game where your prompts are your product. Hire AI agents, write instructions for each one, and race through funding rounds before your runway hits zero. Built at **Bitcamp 2026**.
+A browser-based idle startup simulation where your prompts power your product. Hire AI agents, write instructions for each one, unlock better models, and scale through funding rounds to IPO. Built at **Bitcamp 2026**.
 
 ---
 
 ## What It Is
 
-You're the founder of a scrappy AI startup. You have $50,000 and no team.
+You're the founder of an AI company. You start with nothing — no agents, no users, no revenue.
 
-You hire agents — Sales, Marketing, Engineering, Finance — and write prompts that tell each one what to do. The better your prompts, the more revenue they generate. Every 3 seconds a tick fires. Your agents work. Your runway shrinks. Hit the milestone and raise your next round, or run out of money and it's over.
+You hire AI agents — Chatbot, Image Generator, Code Assistant, Data Analyst, Research Agent, ML Orchestrator — and each one generates users per second. Users generate revenue. Revenue lets you hire more agents, unlock better models, and scale. Hit the funding milestones (users, revenue, profit) to advance through rounds. Reach IPO and you win.
 
-The twist: **TerpAI reads your prompts and scores them**. The score directly changes how much your agent earns each tick. You learn prompt engineering by playing a game that punishes bad prompts and rewards sharp ones.
+The twist: **TerpAI reads your prompts and scores them**. The score directly affects how many users your agent generates and how efficiently they use tokens. You learn prompt engineering by playing a game where bad prompts cost real (in-game) money.
 
 ---
 
 ## Game Loop
 
 ```
-Write a prompt → Agent generates revenue → Runway ticks down →
-Hit milestone → Raise your round → Get more agent slots →
-Repeat until IPO or bankruptcy
+Click to get first users → Hire an agent → Agent generates users/sec →
+Users generate revenue → Buy more agents → Hit milestone →
+Advance funding round → Repeat until IPO → Earn reputation → Pivot
 ```
 
-**Funding rounds:** Pre-Seed ($100K ARR) → Seed ($500K ARR + 1 feature) → Series A ($2M ARR + 1K users) → Series B ($10M ARR + 3 features) → IPO ($100M valuation)
+**Funding rounds:** Bootstrapped → Pre-Seed (150 users) → Seed (1.5K users, $800 revenue) → Series A (20K users, $15K revenue) → Series B (300K users, $200K revenue) → Series C (2M users, $1M revenue) → IPO (8M users, $4M revenue)
 
-Each round has a hard timer. Miss it = game over.
+Each round also requires minimum net profit per second to advance.
 
 ---
 
@@ -35,76 +35,83 @@ Each round has a hard timer. Miss it = game over.
 | Mechanic | What it teaches |
 |---|---|
 | Agent prompts | Prompt engineering, specificity, conciseness |
-| Token cost per tick | Token economics, cost per inference |
-| Burn rate & runway | Startup finance fundamentals |
-| Funding round milestones | ARR, user growth, feature velocity |
+| Token cost per agent | Token economics, cost per inference |
+| Operating costs vs revenue | Startup finance fundamentals |
+| Funding round milestones | Users, revenue, profitability gates |
 | AI prompt evaluation | How LLMs interpret instructions |
-| AI CFO consultations | Burn rate, CAC, unit economics, valuation |
-| Model tiers (Nimbus → Oracle) | Quality/cost tradeoffs in AI products |
-| Agent drift | Why vague prompts produce unpredictable outputs |
-| Prestige upgrades | Compounding advantage, strategic reinvestment |
+| AI CTO consultations | Technical strategy, scaling, unit economics |
+| Model tiers (Nimbus → Oracle Apex) | Quality/cost tradeoffs in AI products |
+| Service quality & user churn | Why quality matters for retention |
+| Reputation upgrades | Compounding advantage, strategic reinvestment |
+| Achievements | 35+ milestones tracking progress across categories |
 
-### Agent Roles
+### Agent Types
 
-- **Sales** — generates ARR. Needs revenue-focused, targeted prompts.
-- **Marketing** — grows users + some ARR. Needs audience-specific framing.
-- **Engineering** — ships features. Needs scoped technical instructions.
-- **Finance** — reduces burn rate. Needs cost-cutting, efficiency language.
+- **Chatbot Agent** — entry-level, cheap, low user generation. Your first hire.
+- **Image Generator** — moderate cost, solid user growth. Unlocks at 100 users.
+- **Code Assistant** — higher cost, strong output. Unlocks at 800 users.
+- **Data Analyst** — expensive, high user generation. Unlocks at 8K users.
+- **Research Agent** — premium tier. Unlocks at 80K users.
+- **ML Orchestrator** — endgame agent, massive output. Unlocks at 800K users.
 
 ### LLM Model Tiers
 
-| Model | Cost/token | Quality cap | Unlock |
+| Model | Cost/token | Quality multiplier | Unlock cost |
 |---|---|---|---|
-| Nimbus-1 | $5 | 55% | Default |
-| Quanta-S | $12 | 75% | 3 VC Chips |
-| Synapse Pro | $25 | 90% | 7 VC Chips |
-| Oracle Ultra | $45 | 100% | 15 VC Chips |
+| Nimbus-1 | $0.01 | 1.0x | Free |
+| Quanta-S | $0.06 | 1.3x | $500 |
+| Synapse Pro | $0.10 | 1.5x | $5,000 |
+| Oracle Ultra | $0.18 | 1.8x | $25,000 |
+| Oracle Apex | $0.40 | 2.2x | $100,000 |
 
-A bloated 200-word prompt on Oracle Ultra burns 10x more runway per tick than a tight 30-word prompt on Nimbus-1. Token economics are real.
+Better models multiply agent quality but cost more per token. A bloated prompt on Oracle Apex burns cash fast. Token economics are real.
 
-### Burn Mode
+### Prestige (Pivot)
 
-When you hit the final 20% of a round timer without meeting your milestone: ticks double in speed, the screen pulses red. You have seconds to fire a bad agent or push a better prompt.
-
-### Prestige
-
-Hit IPO → earn VC Chips (1 per $10M valuation) → spend on permanent upgrades across runs:
-- Faster tick intervals
-- Bigger starting runway
-- Prompt templates (70+ score starters)
-- Unlock higher-tier LLM models
+Hit IPO → earn Reputation points → spend on permanent upgrades → pivot (reset) and run again:
+- Marketing Expertise (2x click power)
+- Angel Investors ($1,500 starting cash)
+- Early Adopters (150 starting users)
+- Prompt Mastery (70% starting prompt quality)
+- Growth Hacking (+25% user generation)
+- Token Optimization (20% cost reduction)
+- Premium Pricing (+50% revenue per user)
+- Industry Connections (Quanta-S unlocked from start)
 
 ---
 
 ## AI Features
 
 ### Prompt Evaluator
-Hit **Evaluate** on any agent card. Costs $200 runway. TerpAI scores your prompt 0–100, estimates tokens/tick, revenue/tick, token efficiency ratio, and gives a one-sentence critique. The score changes what your agent earns from every tick forward.
+Hit **Analyze** on any agent's prompt editor. TerpAI scores your prompt 0–100 for that specific agent type, estimates tokens per tick, revenue per tick, token efficiency, and gives a one-sentence critique. The score directly changes how many users your agent generates.
 
 ```
-Type: "do sales stuff"                              → 22/100. Revenue: ~$1,200/tick.
-Type: "contact SaaS founders at seed stage,         → 81/100. Revenue: ~$6,500/tick.
-      pitch 20% ARR increase in 90 days..."
+Type: "make a chatbot"                                → 22/100. Weak generation.
+Type: "Build a customer support chatbot that          → 81/100. Users triple.
+      handles billing inquiries with empathy,
+      escalates complex issues, resolves in
+      under 3 messages..."
 ```
 
-### AI CFO
-Costs $500. Looks at your entire company — burn rate, agent quality, runway, milestone progress — and returns:
+### AI CTO
+Analyzes your entire company — agents, prompt quality, costs, revenue, service quality — and returns:
 - Company health badge (healthy / warning / critical)
 - 2–3 prioritized strategic actions
-- A mini-lesson on a real startup finance concept (CAC, unit economics, valuation multiples, etc.) tied to your current situation
+- A mini-lesson on a real technical or business concept tied to your current situation
+- Auto-consults when you advance a stage or hire a new agent type
 
 ---
 
 ## Tech Stack
 
-- **Next.js 15** — App Router, server components, API routes
-- **React 19** — `useReducer` for single-source-of-truth game state
-- **TerpAI** — prompt evaluation + CFO consultations, accessed via **Playwright** (AI Agent web automation)
+- **Next.js** — App Router, server components, API routes
+- **React** — `useState`/`useCallback`/`useMemo` for game state
+- **TerpAI** — prompt evaluation + CTO consultations, accessed via **Playwright** (AI agent web automation)
 - **TypeScript** — end-to-end
-- **Tailwind CSS 4** — all UI
+- **Tailwind CSS** — all UI
 - **Deployed on Vercel**
 
-All AI calls are routed through Playwright-driven web automation — TerpAI is invoked server-side so credentials never touch the client. Evaluation results are cached on the agent object to avoid redundant calls. The tick engine runs client-side on `setInterval`, dispatching one atomic action per tick via `useReducer`.
+All AI calls are routed through Playwright-driven web automation — TerpAI is invoked server-side so credentials never touch the client. Evaluation results are cached on the agent object. The game loop runs client-side on continuous `setInterval` cycles (100ms tick for user generation and revenue).
 
 ---
 
@@ -112,30 +119,32 @@ All AI calls are routed through Playwright-driven web automation — TerpAI is i
 
 ```
 bitcamp-2026/
-├── da-app/                  # Next.js application
+├── da-app/                    # Next.js application
 │   └── src/
 │       ├── app/
-│       │   ├── page.tsx     # Main game page
+│       │   ├── new-ui/
+│       │   │   └── page.tsx   # Main game page (idle clicker UI)
+│       │   ├── game-config.ts # Models, agents, stages, upgrades
 │       │   └── api/
-│       │       ├── evaluate/  # AI prompt evaluator
-│       │       └── cfo/       # AI CFO advisor
-│       ├── components/        # All UI components
-│       │   ├── AgentCard.tsx
-│       │   ├── AgentGrid.tsx
-│       │   ├── HUD.tsx
-│       │   ├── CFOPanel.tsx
-│       │   ├── IPOScreen.tsx
-│       │   ├── GameOverScreen.tsx
+│       │       ├── evaluate-idle/ # AI prompt evaluator (per-agent-type)
+│       │       └── cfo-idle/      # AI CTO advisor
+│       ├── components/
+│       │   ├── Header.tsx         # Tab bar (Stats/Upgrades/Achievements)
+│       │   ├── LeftPanel.tsx      # Company info, progress, gold button
+│       │   ├── RightPanel.tsx     # Agent shop + model shop
+│       │   ├── StatisticsPanel.tsx # Live charts and metrics
+│       │   ├── UpgradesPane.tsx   # Reputation upgrade shop
+│       │   ├── AchievementsPane.tsx # Achievement grid
+│       │   ├── AgentEditorModal.tsx # Prompt editor + model selector
+│       │   ├── CTOPanel.tsx       # AI CTO collapsible panel
+│       │   ├── GoldButton.tsx     # Click-to-earn button
 │       │   └── ...
-│       ├── lib/
-│       │   ├── gameReducer.ts  # All state mutations
-│       │   ├── tickEngine.ts   # Core game loop logic
-│       │   ├── promptGrader.ts # Heuristic prompt scoring
-│       │   ├── constants.ts    # Models, rounds, salaries
-│       │   └── types.ts        # Full TypeScript types
-│       └── context/
-│           └── GameContext.tsx # Global state + localStorage
-└── docs/                    # Game design docs
+│       └── lib/
+│           ├── achievements.ts  # 35+ achievement definitions
+│           ├── terpai.ts        # TerpAI Playwright integration
+│           ├── types.ts         # TypeScript types
+│           └── constants.ts     # Shared constants
+└── docs/                      # Game design docs
     ├── GAME_STATE.md
     ├── TICK_ENGINE.md
     ├── FUNDING_GATES.md
@@ -159,7 +168,7 @@ pnpm install
 pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000/new-ui](http://localhost:3000/new-ui).
 
 ---
 
@@ -168,10 +177,11 @@ Open [http://localhost:3000](http://localhost:3000).
 After 20 minutes:
 
 - Why "write a good prompt" is useless advice — specificity matters
-- What burn rate is and why it kills startups
+- What operating costs and unit economics mean for a tech company
 - Why cheap models + tight prompts often beat expensive models + bloated ones
 - What a Series A actually requires versus Pre-Seed
 - Why token count is a cost center, not just a technical detail
+- How service quality affects user retention and churn
 
 That's not a side effect. That's the design.
 
