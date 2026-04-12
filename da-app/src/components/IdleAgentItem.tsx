@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import type { Agent, Model } from '@/app/game-config'
 import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 
@@ -30,9 +31,15 @@ export function IdleAgentItem({
   onChangeModel,
   className,
 }: IdleAgentItemProps) {
+  const [isHydrated, setIsHydrated] = useState(false)
   const canAfford = tokens >= cost
+  const isBuyDisabled = !isHydrated || !canAfford
   const unlockedModels = models.filter((m) => m.unlocked)
   const hasMultipleModels = unlockedModels.length > 1
+
+  useEffect(() => {
+    setIsHydrated(true)
+  }, [])
 
   const formatNumber = (n: number) => {
     if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M'
@@ -110,15 +117,16 @@ export function IdleAgentItem({
 
         {/* Buy button */}
         <button
+          type="button"
           onClick={() => onOpenBuy(agent.id)}
-          disabled={!canAfford}
+          disabled={isBuyDisabled}
           className="shrink-0 flex flex-col items-center justify-center rounded-[8px] px-3 py-1.5 font-bold text-white text-xs leading-tight transition-opacity"
           style={{
             backgroundImage: canAfford ? agent.buttonGrad : undefined,
             background: canAfford ? undefined : '#d9d9d9',
             boxShadow: canAfford ? '0px 3px 0px 0px rgba(0,0,0,0.2)' : '0px 3px 0px 0px #b2b2b2',
             opacity: canAfford ? 1 : 0.6,
-            cursor: canAfford ? 'pointer' : 'not-allowed',
+            cursor: isBuyDisabled ? 'not-allowed' : 'pointer',
             minWidth: 56,
           }}
         >

@@ -15,6 +15,9 @@ interface Particle {
 }
 
 const PARTICLE_COUNT = 8
+const PLAYLIST = ['/mozart1.mp3', '/mozart2.mp3', '/mozart3.mp3'] as const
+const PLAYLIST_VOLUME = 0.245
+const COIN_SOUND = '/coin.mp3'
 
 // Figma design constants (256px outer diameter)
 // Stroke ring: 24px total → 12px inset per side
@@ -55,21 +58,60 @@ function SparkleParticle({ angle, id }: { angle: number; id: number }) {
 export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) {
   const [particles, setParticles] = useState<Particle[]>([])
   const [nextId, setNextId] = useState(0)
-  const baseAudioRef = useRef<HTMLAudioElement | null>(null)
-  const activeSoundsRef = useRef<Set<HTMLAudioElement>>(new Set())
+  const playlistAudioRef = useRef<HTMLAudioElement | null>(null)
+  const playlistIndexRef = useRef(0)
+  const hasStartedPlaylistRef = useRef(false)
+  const baseCoinAudioRef = useRef<HTMLAudioElement | null>(null)
+  const activeCoinSoundsRef = useRef<Set<HTMLAudioElement>>(new Set())
 
   useEffect(() => {
-    const audio = new Audio('/coin.mp3')
+    const audio = new Audio(PLAYLIST[0])
     audio.preload = 'auto'
-    baseAudioRef.current = audio
+    audio.volume = PLAYLIST_VOLUME
+    baseCoinAudioRef.current = new Audio(COIN_SOUND)
+    baseCoinAudioRef.current.preload = 'auto'
+
+    const handleEnded = () => {
+      playlistIndexRef.current = (playlistIndexRef.current + 1) % PLAYLIST.length
+      audio.src = PLAYLIST[playlistIndexRef.current]
+      audio.load()
+      void audio.play().catch(() => {})
+    }
+
+    const startPlaylist = () => {
+      if (hasStartedPlaylistRef.current) return
+      hasStartedPlaylistRef.current = true
+      audio.volume = PLAYLIST_VOLUME
+      void audio.play().catch(() => {
+        hasStartedPlaylistRef.current = false
+      })
+    }
+
+    audio.addEventListener('ended', handleEnded)
+    playlistAudioRef.current = audio
+    void audio.play().then(() => {
+      hasStartedPlaylistRef.current = true
+    }).catch(() => {})
+    window.addEventListener('pointerdown', startPlaylist, { once: true })
+    window.addEventListener('keydown', startPlaylist, { once: true })
 
     return () => {
-      activeSoundsRef.current.forEach((sound) => {
+      audio.pause()
+      audio.removeEventListener('ended', handleEnded)
+      audio.src = ''
+      playlistAudioRef.current = null
+      window.removeEventListener('pointerdown', startPlaylist)
+      window.removeEventListener('keydown', startPlaylist)
+      activeCoinSoundsRef.current.forEach((sound) => {
         sound.pause()
         sound.src = ''
       })
-      activeSoundsRef.current.clear()
-      baseAudioRef.current = null
+      activeCoinSoundsRef.current.clear()
+      if (baseCoinAudioRef.current) {
+        baseCoinAudioRef.current.pause()
+        baseCoinAudioRef.current.src = ''
+        baseCoinAudioRef.current = null
+      }
     }
   }, [])
 
@@ -79,17 +121,25 @@ export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) 
       angle: (i / PARTICLE_COUNT) * Math.PI * 2 - Math.PI / 2,
     }))
 
-    const sound = baseAudioRef.current?.cloneNode() as HTMLAudioElement | undefined
-    if (sound) {
-      activeSoundsRef.current.add(sound)
-      sound.currentTime = 0
-      void sound.play().catch(() => {
-        activeSoundsRef.current.delete(sound)
+    if (!hasStartedPlaylistRef.current && playlistAudioRef.current) {
+      hasStartedPlaylistRef.current = true
+      playlistAudioRef.current.volume = PLAYLIST_VOLUME
+      void playlistAudioRef.current.play().catch(() => {
+        hasStartedPlaylistRef.current = false
       })
-      sound.addEventListener(
+    }
+
+    const coinSound = baseCoinAudioRef.current?.cloneNode() as HTMLAudioElement | undefined
+    if (coinSound) {
+      activeCoinSoundsRef.current.add(coinSound)
+      coinSound.currentTime = 0
+      void coinSound.play().catch(() => {
+        activeCoinSoundsRef.current.delete(coinSound)
+      })
+      coinSound.addEventListener(
         'ended',
         () => {
-          activeSoundsRef.current.delete(sound)
+          activeCoinSoundsRef.current.delete(coinSound)
         },
         { once: true },
       )
