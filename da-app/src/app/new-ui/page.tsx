@@ -231,6 +231,13 @@ export default function NewUIPage() {
     if (isFirstBuy) setEditingAgentId(agentId)
   }
 
+  const unlockModel = (modelId: string) => {
+    const model = models.find((m) => m.id === modelId)
+    if (!model || model.unlocked || tokens < model.unlockCost) return
+    setTokens((t) => t - model.unlockCost)
+    setModels((prev) => prev.map((m) => (m.id === modelId ? { ...m, unlocked: true } : m)))
+  }
+
   const changeAgentModel = (agentId: IdleAgentType, modelId: string) => {
     setAgents((prev) =>
       prev.map((a) => (a.id === agentId ? { ...a, selectedModel: modelId } : a)),
@@ -520,6 +527,7 @@ export default function NewUIPage() {
           getUsersPerSecond={getUsersPerSecond}
           onBuy={(id, isFirstBuy) => buyAgent(id, isFirstBuy)}
           onOpenEditor={setEditingAgentId}
+          onUnlockModel={unlockModel}
         />
       </div>
 

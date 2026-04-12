@@ -52,8 +52,8 @@ type AgentItemProps =
       canAfford?: boolean
       /** Single click — buy one agent */
       onClick?: () => void
-      /** Double click — open agent editor */
-      onDoubleClick?: () => void
+      /** Right click — open agent editor */
+      onContextMenu?: () => void
       className?: string
     }
 
@@ -69,9 +69,9 @@ export function AgentItem(props: AgentItemProps) {
         count:    props.count ?? 0,
       }
 
-  const canAfford    = props.agent ? undefined : (props.canAfford ?? false)
-  const handleClick  = props.agent ? undefined : props.onClick
-  const handleDbl    = props.agent ? undefined : props.onDoubleClick
+  const canAfford       = props.agent ? undefined : (props.canAfford ?? false)
+  const handleClick     = props.agent ? undefined : props.onClick
+  const handleCtxMenu   = props.agent ? undefined : props.onContextMenu
 
   return (
     <div
@@ -85,7 +85,7 @@ export function AgentItem(props: AgentItemProps) {
         userSelect: 'none',
       }}
       onClick={canAfford ? handleClick : undefined}
-      onDoubleClick={handleDbl}
+      onContextMenu={handleCtxMenu ? (e) => { e.preventDefault(); handleCtxMenu() } : undefined}
     >
       {/* Agent icon — overflows left edge */}
       <div
