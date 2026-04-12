@@ -1,0 +1,89 @@
+import { ProgressStep } from '@/components/ProgressStep'
+import { ProgressStem } from '@/components/ProgressStem'
+import { ProgressBar } from '@/components/ProgressBar'
+import { HeaderButton } from '@/components/HeaderButton'
+import { ModelShopItem } from '@/components/ModelShopItem'
+import { GoldButton } from '@/components/GoldButton'
+import { AgentItem } from '@/components/AgentItem'
+import { MODELS } from '@/lib/constants'
+import type { Agent } from '@/lib/types'
+
+const SAMPLE_AGENT: Agent = {
+  id: 'demo-1',
+  name: 'Sales Bot',
+  icon: 'robot',
+  role: 'sales',
+  prompt: '',
+  tokenCount: 0,
+  qualityScore: 99,
+  driftRisk: false,
+  isOffTask: false,
+  modelId: 'nimbus_1',
+  evalResult: null,
+  evalPromptSnapshot: null,
+}
+
+export default function ComponentsPage() {
+  return (
+    <main className="p-8 flex flex-col gap-8">
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">ProgressStep</h2>
+        <div className="flex gap-4 items-center">
+          <ProgressStep variant="default" />
+          <ProgressStep variant="unmet" />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">ProgressStem</h2>
+        <div className="flex flex-col gap-3">
+          <ProgressStem variant="default" className="w-48" />
+          <ProgressStem variant="unmet" className="w-48" />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">ProgressBar</h2>
+        <div className="flex flex-col gap-3 w-60">
+          <ProgressBar value={100} color="#ffc800" />
+          <ProgressBar value={60} color="#ffc800" />
+          <ProgressBar value={25} color="#ffc800" />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">HeaderButton</h2>
+        <div className="flex gap-6 items-center">
+          <HeaderButton text="Button" variant="Default" />
+          <HeaderButton text="Button" variant="Active" />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">GoldButton</h2>
+        <div className="flex gap-8 items-center">
+          <GoldButton />
+          <GoldButton size={96} />
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">ModelShopItem</h2>
+        <div className="flex gap-4 items-start flex-wrap">
+          {Object.values(MODELS).map((model) => (
+            <ModelShopItem key={model.id} model={model} />
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">AgentItem</h2>
+        <div className="flex flex-col gap-4 w-[423px]">
+          <AgentItem agent={SAMPLE_AGENT} />
+          <AgentItem agent={{ ...SAMPLE_AGENT, id: 'demo-2', name: 'Growth Hacker', icon: 'rocket', role: 'marketing', qualityScore: 42, modelId: 'quanta_s' }} />
+          <AgentItem agent={{ ...SAMPLE_AGENT, id: 'demo-3', name: 'Code Monkey', icon: 'wrench', role: 'engineering', qualityScore: 15, modelId: 'synapse_pro' }} />
+        </div>
+      </section>
+    </main>
+  )
+}
