@@ -1,11 +1,13 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { CFOHealth, CFOReport, GameState } from '../lib/types'
+import type { CFOHealth, CFOReport, CFOPromptCoachingEntry, GameState } from '../lib/types'
+import { ROLE_COLORS, TIP_CARDS } from '../lib/constants'
 import { useGame } from '../context/GameContext'
-import { TIP_CARDS } from '../lib/constants'
 
-type CFOApiResponse = Omit<CFOReport, 'consultedAt'>
+type CFOApiResponse = Omit<CFOReport, 'consultedAt'> & {
+  promptCoaching?: CFOPromptCoachingEntry[]
+}
 
 type LocalCFOState = {
   report: CFOReport
@@ -33,6 +35,10 @@ const HEALTH_RING: Record<CFOHealth, string> = {
   critical: 'ring-red-300',
 }
 
+function truncatePrompt(prompt: string): string {
+  return prompt.trim().split(/\s+/).slice(0, 60).join(' ')
+}
+
 function buildCFOPayload(state: GameState) {
   return {
     round: state.round,
@@ -51,6 +57,7 @@ function buildCFOPayload(state: GameState) {
       isOffTask: a.isOffTask,
       hasEval: a.evalResult != null,
       evalEfficiency: a.evalResult?.tokenEfficiency ?? null,
+      prompt: a.qualityScore < 70 ? truncatePrompt(a.prompt) : '',
     })),
   }
 }
@@ -61,7 +68,7 @@ function buildStateSignature(state: GameState): string {
     agents: state.agents.map((agent) => ({
       id: agent.id,
       role: agent.role,
-      prompt: agent.prompt,
+      prompt: agent.qualityScore < 70 ? truncatePrompt(agent.prompt) : '',
       qualityScore: agent.qualityScore,
       tokenCount: agent.tokenCount,
       modelId: agent.modelId,
@@ -130,7 +137,11 @@ export function CFOPanel() {
         throw new Error('CFO response was malformed.')
       }
 
-      const report: CFOReport = { ...data, consultedAt: state.tickCount }
+      const report: CFOReport = {
+        ...data,
+        promptCoaching: Array.isArray(data.promptCoaching) ? data.promptCoaching : [],
+        consultedAt: state.tickCount,
+      }
 
       setLocal({
         report,
@@ -284,6 +295,38 @@ export function CFOPanel() {
               {report.lesson.body}
             </p>
           </div>
+
+          {report.promptCoaching.length > 0 && (
+            <div className="space-y-2">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-stone-500">
+                Prompt Coaching
+              </p>
+              {report.promptCoaching.map((entry) => (
+                <div
+                  key={entry.agentName}
+                  className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2.5"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm">🎯</span>
+                    <span className="text-[12px] font-semibold text-stone-800">
+                      {entry.agentName}
+                    </span>
+                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${ROLE_COLORS[entry.role]}`}>
+                      {entry.role}
+                    </span>
+                  </div>
+                  <ul className="mt-1.5 space-y-1">
+                    {entry.tips.map((tip, i) => (
+                      <li key={i} className="flex gap-1.5 text-[12px] text-stone-700">
+                        <span className="mt-px shrink-0 text-stone-400">•</span>
+                        {tip}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </aside>

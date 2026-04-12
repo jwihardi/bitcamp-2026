@@ -1,6 +1,7 @@
 import type {
   AgentRole,
   CFOHealth,
+  CFOPromptCoachingEntry,
   FundingRound,
   GamePhase,
 } from '@/lib/types'
@@ -37,6 +38,7 @@ type CFOAgentSummary = {
   isOffTask: boolean
   hasEval: boolean
   evalEfficiency: number | null
+  prompt: string
 }
 
 type CFOPayload = {
@@ -57,6 +59,7 @@ type CachedCFOReport = {
     verdict: string
     advice: string[]
     lesson: { topic: string; body: string }
+    promptCoaching: CFOPromptCoachingEntry[]
   }
   expiresAt: number
 }
@@ -87,11 +90,14 @@ function buildCFOPrompt(payload: CFOPayload, compact = false): string {
         a.isOffTask ? 'OFF-TASK' : null,
         a.evalEfficiency != null ? `efficiency: ${a.evalEfficiency}` : null,
       ].filter(Boolean)
-      return `- ${a.name} (${a.role}) — ${parts.join(', ')}`
+      const promptLine = a.prompt ? `\n  Prompt: "${a.prompt}"` : ''
+      return `- ${a.name} (${a.role}) — ${parts.join(', ')}${promptLine}`
     })
     .join('\n')
 
   const rosterBlock = agents.length === 0 ? '- No agents hired yet.' : agentLines
+
+  const hasCoachingCandidates = agents.some(a => a.prompt)
 
   return `You are the AI CFO in a startup simulation game. Give strategic advice and teach startup finance. Do not score prompts.
 
@@ -108,8 +114,10 @@ Company state:
 Agents:
 ${rosterBlock}
 
+${hasCoachingCandidates ? 'For each agent whose prompt is shown (score < 70), provide 2 specific coaching tips: one keyword or phrase they should add to improve role relevance, and one thing to remove or tighten. Be concrete — name the actual word or phrase.' : ''}
+
 Respond with ONLY valid JSON. No markdown. No code fences. Keep it concise.
-${compact ? 'Use short strings. Keep advice items under 90 characters. Keep lesson body under 220 characters.' : ''}
+${compact ? 'Use short strings. Keep advice items under 90 characters. Keep lesson body under 220 characters. Keep each coaching tip under 80 characters.' : ''}
 {
   "health": "<healthy|warning|critical>",
   "verdict": "<one sentence on overall company health>",
@@ -121,20 +129,29 @@ ${compact ? 'Use short strings. Keep advice items under 90 characters. Keep less
   "lesson": {
     "topic": "<short label, e.g. 'Burn Rate', 'Token Efficiency', 'Lean Teams', 'CAC', 'Runway Management'>",
     "body": "<2-3 sentences teaching a real startup or token economics concept, tied to the player's current situation. Write like you're explaining to a smart friend, not a textbook.>"
-  }
+  },
+  "promptCoaching": [
+    {
+      "agentName": "<name of agent with score < 70 whose prompt was shown>",
+      "role": "<their role>",
+      "tips": ["<specific tip 1>", "<specific tip 2>"]
+    }
+  ]
 }`
 }
 
 async function requestCFOReport(payload: CFOPayload) {
   return callTerpAI(
     [{ role: 'user', content: buildCFOPrompt(payload, true) }],
-    320,
+    450,
   )
 }
 
 function getCFOCacheKey(payload: CFOPayload): string {
   return JSON.stringify(payload)
 }
+
+const VALID_ROLES: AgentRole[] = ['sales', 'marketing', 'engineering', 'finance']
 
 function validateAgentSummary(raw: unknown): CFOAgentSummary {
   if (typeof raw !== 'object' || raw === null) {
@@ -144,7 +161,7 @@ function validateAgentSummary(raw: unknown): CFOAgentSummary {
   if (typeof r.name !== 'string') throw new Error('Agent missing name.')
   if (
     typeof r.role !== 'string' ||
-    !['sales', 'marketing', 'engineering', 'finance'].includes(r.role)
+    !VALID_ROLES.includes(r.role as AgentRole)
   ) {
     throw new Error('Agent has invalid role.')
   }
@@ -157,7 +174,25 @@ function validateAgentSummary(raw: unknown): CFOAgentSummary {
     hasEval: Boolean(r.hasEval),
     evalEfficiency:
       typeof r.evalEfficiency === 'number' ? Number(r.evalEfficiency.toFixed(2)) : null,
+    prompt: typeof r.prompt === 'string' ? r.prompt.slice(0, 500) : '',
   }
+}
+
+function parsePromptCoaching(raw: unknown): CFOPromptCoachingEntry[] {
+  if (!Array.isArray(raw)) return []
+  const result: CFOPromptCoachingEntry[] = []
+  for (const item of raw) {
+    if (typeof item !== 'object' || item === null) continue
+    const r = item as Record<string, unknown>
+    if (typeof r.agentName !== 'string') continue
+    if (typeof r.role !== 'string' || !VALID_ROLES.includes(r.role as AgentRole)) continue
+    const tips = Array.isArray(r.tips)
+      ? r.tips.filter((t): t is string => typeof t === 'string' && t.trim().length > 0).slice(0, 3)
+      : []
+    if (tips.length === 0) continue
+    result.push({ agentName: r.agentName, role: r.role as AgentRole, tips })
+  }
+  return result
 }
 
 function clampAdviceList(value: unknown): string[] {
@@ -255,6 +290,7 @@ export async function POST(request: Request) {
       verdict?: unknown
       advice?: unknown
       lesson?: unknown
+      promptCoaching?: unknown
     }
 
     if (
@@ -282,6 +318,7 @@ export async function POST(request: Request) {
       verdict: parsed.verdict,
       advice: clampAdviceList(parsed.advice),
       lesson: { topic: lesson.topic, body: lesson.body },
+      promptCoaching: parsePromptCoaching(parsed.promptCoaching),
     }
 
     cfoCache.set(cacheKey, {
@@ -304,6 +341,7 @@ export async function POST(request: Request) {
             verdict?: unknown
             advice?: unknown
             lesson?: unknown
+            promptCoaching?: unknown
           }
 
           if (
@@ -330,6 +368,7 @@ export async function POST(request: Request) {
             verdict: parsed.verdict,
             advice: clampAdviceList(parsed.advice),
             lesson: { topic: lesson.topic, body: lesson.body },
+            promptCoaching: parsePromptCoaching(parsed.promptCoaching),
           }
 
           logCFODebug('report', report)

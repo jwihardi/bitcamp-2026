@@ -37,8 +37,12 @@ export function ModelShopItem({ model }: ModelShopItemProps) {
     viewportLeft = Math.max(VIEWPORT_PADDING, viewportLeft)
     viewportLeft = Math.min(viewportLeft, window.innerWidth - TOOLTIP_WIDTH - VIEWPORT_PADDING)
 
-    // Convert from viewport coords to coords relative to the wrapper
-    setTooltipStyle({ left: viewportLeft - rect.left, transform: 'none' })
+    // Use fixed positioning so the tooltip escapes any overflow container
+    setTooltipStyle({
+      position: 'fixed',
+      left: viewportLeft,
+      top: rect.bottom + 8,
+    })
     setVisible(true)
   }
 
@@ -78,7 +82,7 @@ export function ModelShopItem({ model }: ModelShopItemProps) {
       {/* Tooltip */}
       {visible && (
         <div
-          className="absolute bottom-[calc(100%+8px)] z-50 w-52 rounded-xl bg-white p-3"
+          className="z-50 w-52 rounded-xl bg-white p-3"
           style={{
             ...tooltipStyle,
             border: '1px solid var(--sds-color-border-default-default, #d9d9d9)',

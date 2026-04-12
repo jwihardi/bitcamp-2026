@@ -61,11 +61,18 @@ export type CFOLesson = {
   body: string
 }
 
+export type CFOPromptCoachingEntry = {
+  agentName: string
+  role: AgentRole
+  tips: string[]
+}
+
 export type CFOReport = {
   health: CFOHealth
   verdict: string
   advice: string[]
   lesson: CFOLesson
+  promptCoaching: CFOPromptCoachingEntry[]
   consultedAt: number
 }
 

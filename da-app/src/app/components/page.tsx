@@ -1,9 +1,11 @@
 'use client'
 
 import { MoneyPile } from '@/components/MoneyPile'
+import { HeaderView } from '@/components/Header'
 import { ProgressStep } from '@/components/ProgressStep'
 import { ProgressStem } from '@/components/ProgressStem'
 import { ProgressBar } from '@/components/ProgressBar'
+import { FundingProgress } from '@/components/FundingProgress'
 import { HeaderButton } from '@/components/HeaderButton'
 import { ModelShopItem } from '@/components/ModelShopItem'
 import { GoldButton } from '@/components/GoldButton'
@@ -29,6 +31,10 @@ const SAMPLE_AGENT: Agent = {
 export default function ComponentsPage() {
   return (
     <main className="p-8 flex flex-col gap-8">
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">Header</h2>
+        <HeaderView arr={2_400_000} users={12_500} />
+      </section>
       <section>
         <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">ProgressStep</h2>
         <div className="flex gap-4 items-center">
@@ -95,6 +101,15 @@ export default function ComponentsPage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xs font-semibold uppercase tracking-widest text-neutral-400 mb-4">FundingProgress</h2>
+        <div className="flex flex-col gap-6 w-full max-w-2xl">
+          <FundingProgress stage={0} />
+          <FundingProgress stage={2} />
+          <FundingProgress stage={5} />
         </div>
       </section>
 

@@ -18,6 +18,8 @@ import {
 } from './game-config'
 import type { Model, Agent, Manager, ReputationUpgrade } from './game-config'
 
+const AUTO_BUY_CUSHION_S = 10
+
 // ============ Helpers ============
 
 function formatNumber(num: number): string {
@@ -487,7 +489,7 @@ export default function IdleGamePage() {
       const earned = (netIncome / 10) * gameSpeed
       setTokens((t) => {
         const next = t + earned
-        if (next < -5_000) setGameOver(true)
+        if (next < -5_000 && netIncome < 0) setGameOver(true)
         return next
       })
       if (netIncome > 0) {
@@ -503,6 +505,28 @@ export default function IdleGamePage() {
     const totalAgents = agents.reduce((sum, a) => sum + a.count, 0)
     setClickPower(1 + Math.floor(totalAgents * 0.5))
   }, [agents])
+
+  // Manager auto-buy loop — purchased managers automatically buy their agent type
+  // once per second, but only when tokens exceed cost + 10s of net income as cushion.
+  useEffect(() => {
+    if (gameSpeed === 0) return
+    const netIncome = getRevenueFromUsers() - getTotalOperatingCost()
+    const cushion = Math.max(0, netIncome) * AUTO_BUY_CUSHION_S
+
+    const interval = setInterval(() => {
+      managers.forEach((mgr) => {
+        if (!mgr.purchased) return
+        const agent = agents.find((a) => a.id === mgr.agentId)
+        if (!agent) return
+        const cost = getCost(agent)
+        if (tokens >= cost + cushion) {
+          buyAgent(mgr.agentId)
+        }
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managers, gameSpeed, agents, tokens, userbase, reputationUpgrades])
 
   // Quality warning toast — fires once on threshold crossing, auto-dismisses after 8s
   useEffect(() => {
