@@ -35,7 +35,7 @@ export function HeaderButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 py-1 ${className ?? ''}`}
+      className={`flex cursor-pointer items-center gap-2 py-1 ${className ?? ''}`}
     >
       {icon ?? defaultIcon}
       <Text

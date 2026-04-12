@@ -115,7 +115,7 @@ export default function PreviewPage() {
           <button
             type="button"
             onClick={() => setActiveTab('stats')}
-            className="flex items-center gap-[8px] py-[4px]"
+            className="flex cursor-pointer items-center gap-[8px] py-[4px]"
             style={{ color: activeTab === 'stats' ? '#1fc46a' : '#b3b3b3', fontWeight: activeTab === 'stats' ? 700 : 600 }}
           >
             <span className="text-[20px]">📊</span>
@@ -124,7 +124,7 @@ export default function PreviewPage() {
           <button
             type="button"
             onClick={() => setActiveTab('upgrades')}
-            className="flex items-center gap-[8px] py-[4px]"
+            className="flex cursor-pointer items-center gap-[8px] py-[4px]"
             style={{ color: activeTab === 'upgrades' ? '#1fc46a' : '#b3b3b3', fontWeight: activeTab === 'upgrades' ? 700 : 600 }}
           >
             <span className="text-[20px]">⬆️</span>
@@ -133,7 +133,7 @@ export default function PreviewPage() {
           <button
             type="button"
             onClick={() => setActiveTab('achievements')}
-            className="flex items-center gap-[8px] py-[4px]"
+            className="flex cursor-pointer items-center gap-[8px] py-[4px]"
             style={{ color: activeTab === 'achievements' ? '#1fc46a' : '#b3b3b3', fontWeight: activeTab === 'achievements' ? 700 : 600 }}
           >
             <span className="text-[20px]">⭐</span>
