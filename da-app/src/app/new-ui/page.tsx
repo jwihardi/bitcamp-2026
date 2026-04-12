@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { PromptEvaluation } from '@/lib/types'
 import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 import {
@@ -18,6 +18,7 @@ import { UpgradesPane } from '@/components/UpgradesPane'
 import { StatisticsPanel } from '@/components/StatisticsPanel'
 import { BuyAgentModal } from '@/components/BuyAgentModal'
 import { PromptEditorModal } from '@/components/PromptEditorModal'
+import { CTOPanel, type CtoReport } from '@/components/CTOPanel'
 
 // ---- helpers ----
 
@@ -74,6 +75,20 @@ export default function NewUIPage() {
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
   const [buyingAgentId, setBuyingAgentId] = useState<IdleAgentType | null>(null)
   const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
+
+  // CTO panel state
+  const [ctoReport, setCtoReport] = useState<CtoReport | null>(null)
+  const [ctoLoading, setCtoLoading] = useState(false)
+  const [ctoError, setCtoError] = useState<string | null>(null)
+  const [ctoCollapsed, setCtoCollapsed] = useState(false)
+  const [ctoFresh, setCtoFresh] = useState(false)
+
+  // CTO refs (debounce / anti-stale-closure)
+  const ctoLoadingRef = useRef(false)
+  const autoConsultTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lastAutoConsultTimeRef = useRef<number>(0)
+  const purchasedAgentTypesRef = useRef(new Set<string>())
+  const prevStageIndexRef = useRef(0)
 
   const gameSpeed: number = 1
 
@@ -240,6 +255,97 @@ export default function NewUIPage() {
         })
       })
   }
+
+  // ---- AI CTO ----
+
+  const consultCTO = useCallback(async () => {
+    if (ctoLoading) return
+    setCtoLoading(true)
+    setCtoError(null)
+
+    const payload = {
+      stage: FUNDING_STAGES[currentStageIndex].name,
+      tokens: Math.floor(tokens),
+      userbase: Math.floor(userbase),
+      revenuePerSec: getRevenueFromUsers(),
+      operatingCostPerSec: getTotalOperatingCost(),
+      netIncomePerSec: getRevenueFromUsers() - getTotalOperatingCost(),
+      serviceQuality: Math.round(calculateServiceQuality()),
+      gameSpeed,
+      agents: agents
+        .filter((a) => a.count > 0)
+        .map((a) => ({
+          name: a.name,
+          type: a.id,
+          count: a.count,
+          promptQuality: Math.round(a.promptQuality),
+          model: models.find((m) => m.id === a.selectedModel)?.name ?? a.selectedModel,
+          prompt: a.lastPrompt,
+          evaluationExplanation: a.lastEvaluation?.explanation ?? null,
+        })),
+    }
+
+    try {
+      const res = await fetch('/api/cfo-idle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { error?: string }
+        setCtoError(err.error ?? 'CTO unavailable — try again.')
+      } else {
+        const report = (await res.json()) as CtoReport
+        setCtoReport(report)
+        setCtoFresh(true)
+        setTimeout(() => setCtoFresh(false), 2500)
+      }
+    } catch {
+      setCtoError('CTO unavailable — try again.')
+    } finally {
+      setCtoLoading(false)
+    }
+  }, [
+    ctoLoading, tokens, currentStageIndex, userbase, gameSpeed,
+    agents, models, getRevenueFromUsers, getTotalOperatingCost, calculateServiceQuality,
+  ])
+
+  // Keep ref in sync so auto-consult timer avoids stale closure
+  useEffect(() => { ctoLoadingRef.current = ctoLoading }, [ctoLoading])
+
+  // Debounced free auto-consult (4s delay, 30s minimum interval)
+  const scheduleAutoConsult = useCallback(() => {
+    if (autoConsultTimerRef.current) clearTimeout(autoConsultTimerRef.current)
+    autoConsultTimerRef.current = setTimeout(() => {
+      if (ctoLoadingRef.current) return
+      const now = Date.now()
+      if (now - lastAutoConsultTimeRef.current < 30_000) return
+      lastAutoConsultTimeRef.current = now
+      consultCTO()
+    }, 4_000)
+  }, [consultCTO])
+
+  // Trigger on stage advance
+  useEffect(() => {
+    if (currentStageIndex > prevStageIndexRef.current) {
+      prevStageIndexRef.current = currentStageIndex
+      scheduleAutoConsult()
+    } else {
+      prevStageIndexRef.current = currentStageIndex
+    }
+  }, [currentStageIndex, scheduleAutoConsult])
+
+  // Trigger on first purchase of a new agent type
+  useEffect(() => {
+    let triggered = false
+    for (const agent of agents) {
+      if (agent.count > 0 && !purchasedAgentTypesRef.current.has(agent.id)) {
+        purchasedAgentTypesRef.current.add(agent.id)
+        triggered = true
+      }
+    }
+    if (triggered) scheduleAutoConsult()
+  }, [agents, scheduleAutoConsult])
 
   // ---- game loops ----
 
@@ -408,6 +514,16 @@ export default function NewUIPage() {
           }}
         />
       )}
+
+      {/* AI CTO Panel — fixed bottom-right, auto-consults only */}
+      <CTOPanel
+        collapsed={ctoCollapsed}
+        onToggle={() => setCtoCollapsed((c) => !c)}
+        report={ctoReport}
+        loading={ctoLoading}
+        error={ctoError}
+        fresh={ctoFresh}
+      />
     </div>
   )
 }
