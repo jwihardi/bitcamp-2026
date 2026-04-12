@@ -96,7 +96,7 @@ export default function ComponentsPage() {
                 <MoneyPile
                   percentage={pct}
                   companyName="Sales Bot & Co."
-                  usersPerSecond={pct * 300}
+                  passiveProfitPerSecond={pct * 300}
                   onGoldButtonClick={() => console.log('gold button clicked', pct)}
                 />
               </div>

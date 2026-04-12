@@ -5,18 +5,24 @@ import { MoneyPile } from './MoneyPile'
 type LeftPanelProps = {
   percentage: number
   userCount: number
-  usersPerSecond: number
+  passiveProfitPerSecond: number
   companyName: string
   onGoldButtonClick: () => void
 }
 
-export function LeftPanel({ percentage, userCount, usersPerSecond, companyName, onGoldButtonClick }: LeftPanelProps) {
+export function LeftPanel({
+  percentage,
+  userCount,
+  passiveProfitPerSecond,
+  companyName,
+  onGoldButtonClick,
+}: LeftPanelProps) {
   return (
     <MoneyPile
       percentage={percentage}
       userCount={userCount}
       companyName={companyName}
-      usersPerSecond={usersPerSecond}
+      passiveProfitPerSecond={passiveProfitPerSecond}
       onGoldButtonClick={onGoldButtonClick}
     />
   )

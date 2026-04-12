@@ -84,7 +84,7 @@ export type StatisticsPanelProps = {
   clickPower: number
   currentStageIndex: number
   userbase: number
-  netIncome: number
+  profitPerSecond: number
   unlockedModels: Model[]
   totalModels: number
   nextStage: FundingStage | null
@@ -98,7 +98,7 @@ export function StatisticsPanel({
   clickPower,
   currentStageIndex,
   userbase,
-  netIncome,
+  profitPerSecond,
   unlockedModels,
   totalModels,
   nextStage,
@@ -125,7 +125,7 @@ export function StatisticsPanel({
 
   const profitPct =
     nextStage && nextStage.profitRequirement > 0
-      ? Math.min(100, Math.max(0, (netIncome / nextStage.profitRequirement) * 100))
+      ? Math.min(100, Math.max(0, (profitPerSecond / nextStage.profitRequirement) * 100))
       : 100
 
   return (
@@ -248,7 +248,7 @@ export function StatisticsPanel({
                         minWidth: 128,
                       }}
                     >
-                      ${formatNumber(netIncome)}/${formatNumber(nextStage.profitRequirement)}
+                      ${formatNumber(profitPerSecond)}/s / ${formatNumber(nextStage.profitRequirement)}/s
                     </span>
                     <ProgressBar value={profitPct} color="#58cc02" className="flex-1" />
                   </div>

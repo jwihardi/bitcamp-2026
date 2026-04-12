@@ -46,7 +46,7 @@ export default function NewUIPage() {
   const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
 
-  const gameSpeed = 1
+  const gameSpeed: number = 1
 
   // ---- reputation upgrade purchase ----
 
@@ -199,7 +199,13 @@ export default function NewUIPage() {
     ) {
       setCurrentStageIndex((i) => i + 1)
     }
-  }, [currentStageIndex, userbase, totalEarned, getRevenueFromUsers, getTotalOperatingCost])
+  }, [
+    currentStageIndex,
+    userbase,
+    totalEarned,
+    getRevenueFromUsers,
+    getTotalOperatingCost,
+  ])
 
   useEffect(() => {
     advanceStage()
@@ -211,7 +217,7 @@ export default function NewUIPage() {
   const percentage = (currentStageIndex / (FUNDING_STAGES.length - 1)) * 100
 
   const usersPerSecond = getTotalUsersPerSecond()
-  const netIncome = getRevenueFromUsers() - getTotalOperatingCost()
+  const passiveProfitPerSecond = getRevenueFromUsers() - getTotalOperatingCost()
   const unlockedModels = models.filter((m) => m.unlocked)
 
   const companyName = (() => {
@@ -233,7 +239,7 @@ export default function NewUIPage() {
           <LeftPanel
             percentage={percentage}
             userCount={Math.floor(userbase)}
-            usersPerSecond={usersPerSecond}
+            passiveProfitPerSecond={passiveProfitPerSecond}
             companyName={companyName}
             onGoldButtonClick={handleClick}
           />
@@ -256,7 +262,7 @@ export default function NewUIPage() {
               clickPower={clickPower}
               currentStageIndex={currentStageIndex}
               userbase={userbase}
-              netIncome={netIncome}
+              profitPerSecond={passiveProfitPerSecond}
               unlockedModels={unlockedModels}
               totalModels={models.length}
               nextStage={nextStage}

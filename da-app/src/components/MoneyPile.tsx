@@ -9,8 +9,8 @@ type MoneyPileProps = {
   companyName?: string
   /** Current total user count. */
   userCount?: number
-  /** Users added per second across all agents. */
-  usersPerSecond?: number
+  /** Passive money generated per second, excluding clicks. */
+  passiveProfitPerSecond?: number
   className?: string
   onGoldButtonClick?: () => void
 }
@@ -25,7 +25,7 @@ export function MoneyPile({
   percentage,
   companyName = 'Your Company',
   userCount = 0,
-  usersPerSecond = 0,
+  passiveProfitPerSecond = 0,
   className,
   onGoldButtonClick,
 }: MoneyPileProps) {
@@ -86,7 +86,7 @@ export function MoneyPile({
             {formatPerSecond(userCount)} users
           </p>
           <p className="text-base leading-snug opacity-70" style={{ fontFamily: 'Nunito, sans-serif' }}>
-            +{formatPerSecond(usersPerSecond)}/sec
+            +${formatPerSecond(passiveProfitPerSecond)}/sec passive
           </p>
         </div>
 
