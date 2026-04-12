@@ -51,6 +51,19 @@ type CFOPayload = {
   agents: CFOAgentSummary[]
 }
 
+type CachedCFOReport = {
+  report: {
+    health: CFOHealth
+    verdict: string
+    advice: string[]
+    lesson: { topic: string; body: string }
+  }
+  expiresAt: number
+}
+
+const CFO_CACHE_TTL_MS = 45_000
+const cfoCache = new Map<string, CachedCFOReport>()
+
 function buildCFOPrompt(payload: CFOPayload, compact = false): string {
   const { round, phase, arr, runway, users, features, agentSlots, tickInterval, agents } = payload
   const currentMilestone = ROUNDS[round]
@@ -117,6 +130,10 @@ async function requestCFOReport(payload: CFOPayload) {
     [{ role: 'user', content: buildCFOPrompt(payload, true) }],
     320,
   )
+}
+
+function getCFOCacheKey(payload: CFOPayload): string {
+  return JSON.stringify(payload)
 }
 
 function validateAgentSummary(raw: unknown): CFOAgentSummary {
@@ -218,6 +235,13 @@ export async function POST(request: Request) {
 
   logCFODebug('payload', payload)
 
+  const cacheKey = getCFOCacheKey(payload)
+  const cached = cfoCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    logCFODebug('cache_hit', { cacheKey })
+    return Response.json(cached.report)
+  }
+
   let result = await requestCFOReport(payload)
 
   if (!result.ok) {
@@ -259,6 +283,11 @@ export async function POST(request: Request) {
       advice: clampAdviceList(parsed.advice),
       lesson: { topic: lesson.topic, body: lesson.body },
     }
+
+    cfoCache.set(cacheKey, {
+      report,
+      expiresAt: Date.now() + CFO_CACHE_TTL_MS,
+    })
 
     logCFODebug('report', report)
     return Response.json(report)

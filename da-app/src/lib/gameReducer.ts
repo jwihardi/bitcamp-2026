@@ -134,17 +134,20 @@ export function gameReducer(state: GameState, action: Action): GameState {
     case 'EVALUATE_AGENT': {
       const cost = Math.max(0, action.cost)
       const nextRunway = Math.max(0, state.runway - cost)
-      const agents = state.agents.map((a) =>
-        a.id === action.agentId
-          ? {
-              ...a,
-              qualityScore: action.evaluation.score,
-              driftRisk: action.evaluation.score < 40,
-              evalResult: action.evaluation,
-              evalPromptSnapshot: action.promptSnapshot,
-            }
-          : a,
-      )
+      const agents = state.agents.map((a) => {
+        if (a.id !== action.agentId) return a
+
+        // Ignore late evaluations for prompts the user has already changed.
+        if (a.prompt !== action.promptSnapshot) return a
+
+        return {
+          ...a,
+          qualityScore: action.evaluation.score,
+          driftRisk: action.evaluation.score < 40,
+          evalResult: action.evaluation,
+          evalPromptSnapshot: action.promptSnapshot,
+        }
+      })
       return {
         ...state,
         runway: nextRunway,

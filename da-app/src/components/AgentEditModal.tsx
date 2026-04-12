@@ -1,6 +1,4 @@
 'use client'
-
-import { useState } from 'react'
 import type { Agent, ModelId } from '../lib/types'
 import { useGame } from '../context/GameContext'
 import {
@@ -43,8 +41,6 @@ function efficiencyClass(efficiency: number) {
 
 export function AgentEditModal({ agent, onClose }: Props) {
   const { state, dispatch, notifyCFOActivity } = useGame()
-  const [evaluating, setEvaluating] = useState(false)
-  const [evalError, setEvalError] = useState<string | null>(null)
 
   function handlePromptChange(value: string) {
     const tokenCount = countTokens(value)
@@ -58,7 +54,7 @@ export function AgentEditModal({ agent, onClose }: Props) {
     })
   }
 
-  async function handleDone() {
+  function handleDone() {
     const promptSnapshot = agent.prompt
     if (!promptSnapshot.trim()) {
       notifyCFOActivity()
@@ -77,31 +73,32 @@ export function AgentEditModal({ agent, onClose }: Props) {
       return
     }
 
-    setEvaluating(true)
-    setEvalError(null)
-    try {
-      const evaluation = await evaluatePrompt(promptSnapshot, agent.role, {
+    notifyCFOActivity()
+    onClose()
+
+    void evaluatePrompt(promptSnapshot, agent.role, {
         round: state.round,
         arr: Math.max(0, Math.floor(state.arr)),
         users: Math.max(0, Math.floor(state.users)),
         features: Math.max(0, Math.floor(state.features)),
       })
-      dispatch({
-        type: 'EVALUATE_AGENT',
-        agentId: agent.id,
-        evaluation,
-        promptSnapshot,
-        cost: 0,
+      .then((evaluation) => {
+        dispatch({
+          type: 'EVALUATE_AGENT',
+          agentId: agent.id,
+          evaluation,
+          promptSnapshot,
+          cost: 0,
+        })
       })
-      notifyCFOActivity()
-      onClose()
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Evaluation failed while saving.'
-      setEvalError(message)
-    } finally {
-      setEvaluating(false)
-    }
+      .catch((error) => {
+        const message =
+          error instanceof Error ? error.message : 'Evaluation failed while saving.'
+        console.error('[AgentEditModal] background evaluation failed', {
+          agentId: agent.id,
+          message,
+        })
+      })
   }
 
   function useTemplate() {
@@ -266,14 +263,12 @@ export function AgentEditModal({ agent, onClose }: Props) {
         )}
 
         <div className="mt-5 flex items-center justify-between gap-3">
-          {evalError && <span className="text-xs text-red-400">{evalError}</span>}
           <button
             type="button"
-            onClick={() => void handleDone()}
-            disabled={evaluating}
-            className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-semibold text-stone-950 disabled:cursor-not-allowed disabled:bg-stone-700 disabled:text-stone-300"
+            onClick={handleDone}
+            className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-semibold text-stone-950"
           >
-            {evaluating ? 'Saving…' : 'Done'}
+            Done
           </button>
         </div>
       </div>
