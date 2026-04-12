@@ -59,7 +59,7 @@ function getInitialState(upgrades: ReputationUpgrade[]) {
     userbase: has('startingUsers') ? 150 : 0,
     agents: INITIAL_AGENTS.map((a) => ({
       ...a,
-      promptQuality: has('promptQuality') ? 70 : 50,
+      promptQuality: has('promptQuality') ? 70 : 0,
     })),
     models: INITIAL_MODELS.map((m) => ({
       ...m,
@@ -80,6 +80,9 @@ type CfoReport = {
 // ============ Component ============
 
 export default function IdleGamePage() {
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
   const [userbase, setUserbase] = useState(
     () => getInitialState(INITIAL_REPUTATION_UPGRADES).userbase,
@@ -95,6 +98,7 @@ export default function IdleGamePage() {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   const [serviceQuality, setServiceQuality] = useState(100)
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
+  const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
 
   const [gameSpeed, setGameSpeed] = useState<0 | 1 | 2 | 5>(1)
   const [reputation, setReputation] = useState(0)
@@ -112,6 +116,7 @@ export default function IdleGamePage() {
   const [cfoError, setCfoError] = useState<string | null>(null)
   const [cfoCollapsed, setCfoCollapsed] = useState(false)
   const [cfoCooldownUntil, setCfoCooldownUntil] = useState(0)
+  const [cfoFresh, setCfoFresh] = useState(false)
   const [gameOver, setGameOver] = useState(false)
 
   // Refs for auto-consult debouncing — avoids stale closures inside setTimeout
@@ -168,6 +173,9 @@ export default function IdleGamePage() {
   }, [userbase, getReputationBonus])
 
   const getTokensUsed = (agent: Agent): number => {
+    if (agent.lastEvaluation) {
+      return agent.lastEvaluation.estimatedTokensPerTick
+    }
     const promptEfficiency = agent.promptQuality / 100
     const tokenMultiplier = 2 - promptEfficiency
     return agent.baseTokensPerTask * tokenMultiplier
@@ -328,6 +336,33 @@ export default function IdleGamePage() {
     )
   }
 
+  const handleAnalyze = (agentId: IdleAgentType, prompt: string) => {
+    setEvaluatingAgentIds((prev) => new Set(prev).add(agentId))
+    const stageContext = {
+      stage: FUNDING_STAGES[currentStageIndex].name,
+      users: Math.floor(userbase),
+      revenue: Math.floor(totalEarned),
+      agentCount: agents.reduce((s, a) => s + a.count, 0),
+    }
+    void evaluateIdlePrompt(prompt, agentId, stageContext)
+      .then((evaluation) => {
+        applyEvaluation(agentId, prompt, evaluation)
+        setEvaluatingAgentIds((prev) => {
+          const next = new Set(prev)
+          next.delete(agentId)
+          return next
+        })
+      })
+      .catch((e) => {
+        console.error('[handleAnalyze] background evaluation failed', e instanceof Error ? e.message : e)
+        setEvaluatingAgentIds((prev) => {
+          const next = new Set(prev)
+          next.delete(agentId)
+          return next
+        })
+      })
+  }
+
   // ---- AI CFO handler ----
 
   const consultCFO = useCallback(async (free = false) => {
@@ -371,6 +406,8 @@ export default function IdleGamePage() {
       } else {
         const report = (await res.json()) as CfoReport
         setCfoReport(report)
+        setCfoFresh(true)
+        setTimeout(() => setCfoFresh(false), 2500)
       }
     } catch {
       setCfoError('CFO unavailable — try again.')
@@ -524,6 +561,7 @@ export default function IdleGamePage() {
   const SPEED_OPTIONS: Array<0 | 1 | 2 | 5> = [0, 1, 2, 5]
   const SPEED_LABELS: Record<number, string> = { 0: '⏸ 0×', 1: '▶ 1×', 2: '⏩ 2×', 5: '⏭ 5×' }
 
+  if (!mounted) return null
 
   return (
     <div
@@ -939,14 +977,20 @@ export default function IdleGamePage() {
                           <div className="mt-[8px] flex items-center gap-[8px] flex-wrap">
                             <button
                               type="button"
-                              onClick={() => setEditingAgentId(agent.id)}
+                              onClick={() => !evaluatingAgentIds.has(agent.id) && setEditingAgentId(agent.id)}
                               className={`h-[31.188px] px-[13.6px] rounded-[16px] border-[1.6px] border-solid font-bold text-[12px] leading-[16px] transition-colors ${
-                                agent.promptQuality < 60
-                                  ? 'bg-[#fff7ed] border-[#fed7aa] text-[#9a3412] hover:bg-[#ffedd5]'
-                                  : 'bg-[#faf5ff] border-[#e9d4ff] text-[#8200db] hover:bg-[#f3e8ff]'
+                                evaluatingAgentIds.has(agent.id)
+                                  ? 'bg-[#faf5ff] border-[#e9d4ff] text-[#8200db] opacity-70 cursor-wait animate-pulse'
+                                  : agent.promptQuality < 60
+                                    ? 'bg-[#fff7ed] border-[#fed7aa] text-[#9a3412] hover:bg-[#ffedd5]'
+                                    : 'bg-[#faf5ff] border-[#e9d4ff] text-[#8200db] hover:bg-[#f3e8ff]'
                               }`}
                             >
-                              📝 Prompt ({Math.floor(agent.promptQuality)}%)
+                              {evaluatingAgentIds.has(agent.id)
+                                ? '⏳ Evaluating...'
+                                : agent.lastEvaluation
+                                  ? `✦ Prompt (${Math.floor(agent.promptQuality)}%)`
+                                  : `📝 Prompt (${Math.floor(agent.promptQuality)}%)`}
                             </button>
 
                             {/* Per-agent model selector */}
@@ -1095,14 +1139,8 @@ export default function IdleGamePage() {
         return (
           <PromptEditorModal
             agent={editing}
-            stage={currentStage.name}
-            users={Math.floor(userbase)}
-            revenue={Math.floor(totalEarned)}
-            agentCount={totalAgentCount}
             onClose={() => setEditingAgentId(null)}
-            onEvaluated={(prompt, evaluation) =>
-              applyEvaluation(editing.id, prompt, evaluation)
-            }
+            onAnalyze={(prompt) => handleAnalyze(editing.id, prompt)}
           />
         )
       })()}
@@ -1288,11 +1326,11 @@ export default function IdleGamePage() {
 
             {/* Panel body */}
             <div className="px-[18px] py-[16px] flex flex-col gap-[12px] max-h-[70vh] overflow-y-auto">
-              {/* Status / loading indicator */}
-              {cfoLoading && (
-                <div className="flex items-center justify-center gap-[8px] h-[36px]">
-                  <span className="text-[14px]">⏳</span>
-                  <p className="text-[12px] text-[#64748b] font-medium">Consulting CFO…</p>
+              {/* Fresh flash — briefly shown when new report arrives */}
+              {cfoFresh && (
+                <div className="flex items-center gap-[6px] bg-[#f0fdf4] border border-[#bbf7d0] border-solid rounded-[10px] px-[12px] py-[8px]">
+                  <span className="text-[13px]">✓</span>
+                  <p className="text-[12px] text-[#15803d] font-semibold">Updated</p>
                 </div>
               )}
 
@@ -1448,20 +1486,12 @@ function HeaderStat({
 
 function PromptEditorModal({
   agent,
-  stage,
-  users,
-  revenue,
-  agentCount,
   onClose,
-  onEvaluated,
+  onAnalyze,
 }: {
   agent: Agent
-  stage: string
-  users: number
-  revenue: number
-  agentCount: number
   onClose: () => void
-  onEvaluated: (prompt: string, evaluation: PromptEvaluation) => void
+  onAnalyze: (prompt: string) => void
 }) {
   const [prompt, setPrompt] = useState(agent.lastPrompt)
   const [error, setError] = useState<string | null>(null)
@@ -1469,25 +1499,13 @@ function PromptEditorModal({
     () => PROMPT_CHALLENGES[Math.floor(Math.random() * PROMPT_CHALLENGES.length)],
   )
 
-  const tokenEstimate = Math.floor(prompt.length * 0.75)
-
   const analyze = () => {
     if (!prompt.trim()) {
       setError('Write a prompt first.')
       return
     }
-    const promptSnapshot = prompt
+    onAnalyze(prompt)
     onClose()
-    void evaluateIdlePrompt(promptSnapshot, agent.id, {
-      stage,
-      users,
-      revenue,
-      agentCount,
-    })
-      .then(evaluation => onEvaluated(promptSnapshot, evaluation))
-      .catch(e => {
-        console.error('[PromptEditorModal] background evaluation failed', e instanceof Error ? e.message : e)
-      })
   }
 
   const displayQuality = agent.promptQuality
@@ -1555,12 +1573,9 @@ function PromptEditorModal({
           </div>
         </div>
 
-        {/* Prompt label + token counter */}
-        <div className="flex items-center justify-between mb-[8px]">
+        {/* Prompt label */}
+        <div className="mb-[8px]">
           <p className="font-bold leading-[24px] text-[#1e2939] text-[16px]">Your Prompt</p>
-          <p className="font-normal leading-[16px] text-[#6a7282] text-[12px] tabular-nums">
-            ~{tokenEstimate} tokens
-          </p>
         </div>
 
         {/* Textarea */}
@@ -1574,6 +1589,50 @@ function PromptEditorModal({
         {/* Error feedback */}
         {error && (
           <p className="mt-[12px] text-[#b91c1c] text-[13px] font-bold">{error}</p>
+        )}
+
+        {/* Previous evaluation result */}
+        {agent.lastEvaluation && (
+          <div
+            className={`mt-[12px] border-[2px] border-solid rounded-[16px] p-[16px] ${
+              agent.lastEvaluation.score >= 70
+                ? 'bg-[#f0fdf4] border-[#86efac]'
+                : agent.lastEvaluation.score >= 50
+                  ? 'bg-[#eff6ff] border-[#bfdbfe]'
+                  : 'bg-[#fff7ed] border-[#fed7aa]'
+            }`}
+          >
+            <div className="flex items-center justify-between mb-[8px]">
+              <p className="font-bold text-[12px] text-[#6a7282] uppercase tracking-wide">Last result</p>
+              <span
+                className={`font-extrabold text-[16px] tabular-nums ${
+                  agent.lastEvaluation.score >= 70
+                    ? 'text-[#00a63e]'
+                    : agent.lastEvaluation.score >= 50
+                      ? 'text-[#1d4ed8]'
+                      : 'text-[#f97316]'
+                }`}
+              >
+                {agent.lastEvaluation.score}/100
+              </span>
+            </div>
+            {agent.lastEvaluation.explanation && (
+              <p className="font-normal text-[13px] text-[#4a5565] leading-[20px] mb-[8px]">
+                {agent.lastEvaluation.explanation}
+              </p>
+            )}
+            <div className="flex gap-[16px] flex-wrap">
+              <span className="font-bold text-[12px] text-[#6a7282]">
+                ⚡ {formatNumber(agent.lastEvaluation.estimatedTokensPerTick)} tok/tick
+              </span>
+              <span className="font-bold text-[12px] text-[#6a7282]">
+                💰 ${formatNumber(agent.lastEvaluation.estimatedRevenuePerTick)}/tick
+              </span>
+              <span className="font-bold text-[12px] text-[#6a7282]">
+                📊 {agent.lastEvaluation.tokenEfficiency.toFixed(2)} $/tok
+              </span>
+            </div>
+          </div>
         )}
 
         {/* Current Prompt Quality */}
