@@ -26,6 +26,22 @@ type AchievementToast = { key: string; id: string; title: string; emoji: string 
 
 // ---- helpers ----
 
+const IPO_FLAVOR_LINES = [
+  'Your lean team and sharp prompts made all the difference.',
+  'From bootstrapped to billion-dollar — what a ride.',
+  'The VCs are calling. The future is yours.',
+  'Every token spent was worth it.',
+]
+
+function formatNumber(num: number): string {
+  if (!Number.isFinite(num)) return '0'
+  if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T'
+  if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B'
+  if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M'
+  if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K'
+  return Math.floor(num).toString()
+}
+
 async function evaluateIdlePrompt(
   prompt: string,
   agentType: IdleAgentType,
@@ -219,6 +235,7 @@ export default function NewUIPage() {
   // ---- reputation upgrade purchase ----
 
   const [reputation, setReputation] = useState(0)
+  const [ipoPanel, setIpoPanel] = useState<0 | 1 | 2 | 3>(0)
 
   const buyReputationUpgrade = (upgradeId: string) => {
     const upgrade = reputationUpgrades.find((u) => u.id === upgradeId)
@@ -595,6 +612,32 @@ export default function NewUIPage() {
     advanceStage()
   }, [userbase, totalEarned, currentStageIndex, advanceStage])
 
+  // ---- IPO trigger ----
+  const isAtIPO = currentStageIndex === FUNDING_STAGES.length - 1
+  useEffect(() => {
+    if (isAtIPO && ipoPanel === 0) {
+      setIpoPanel(1)
+    }
+  }, [isAtIPO, ipoPanel])
+
+  const pivot = useCallback(() => {
+    const ipoStage = FUNDING_STAGES[FUNDING_STAGES.length - 1]
+    setReputation((r) => r + ipoStage.reputationGain)
+    const initial = getInitialState(reputationUpgrades)
+    setTokens(initial.tokens)
+    setUserbase(initial.userbase)
+    setAgents(initial.agents)
+    setModels(initial.models)
+    setTotalEarned(0)
+    setCurrentStageIndex(0)
+    setClickPower(1)
+    setLifetimeRevenue(0)
+    setLifetimeCosts(0)
+    setIpoPanel(0)
+    setCtoReport(null)
+    setCtoError(null)
+  }, [reputationUpgrades])
+
   useEffect(() => {
     let achievedMilestoneIndex = 0
     for (let i = 1; i < FUNDING_STAGES.length; i += 1) {
@@ -626,8 +669,21 @@ export default function NewUIPage() {
   const passiveProfitPerSecond = getRevenueFromUsers() - getTotalOperatingCost()
   const unlockedModels = models.filter((m) => m.unlocked)
   const totalAgents = agents.reduce((sum, agent) => sum + agent.count, 0)
+  const totalAgentCount = totalAgents
   const purchasedUpgrades = reputationUpgrades.filter((upgrade) => upgrade.purchased).length
   const maxPromptQuality = agents.reduce((max, agent) => Math.max(max, agent.promptQuality), 0)
+
+  // IPO derived values
+  const ipoValuation = totalEarned * 10
+  const ipoCompanyName = agents.find((a) => a.count > 0)
+    ? `${agents.find((a) => a.count > 0)!.name} & Co.`
+    : companyName
+  const ipoFlavorLine = useMemo(
+    () => IPO_FLAVOR_LINES[Math.floor(Math.random() * IPO_FLAVOR_LINES.length)],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ipoPanel],
+  )
+  const ipoReputationGain = FUNDING_STAGES[FUNDING_STAGES.length - 1].reputationGain
 
   const achievementMetrics: AchievementMetrics = useMemo(() => ({
     tokens,
@@ -799,6 +855,11 @@ export default function NewUIPage() {
                 nextStage={nextStage}
               />
             )}
+            {activeTab === 'achievements' && (
+              <AchievementsPane
+                achievements={achievements}
+              />
+            )}
           </div>
           <div className="px-4 py-3 absolute bottom-0 left-0 right-0" style={{ background: 'transparent' }}>
             <div className="mx-auto w-full max-w-[720px] flex justify-center">
@@ -812,11 +873,6 @@ export default function NewUIPage() {
               />
             </div>
           </div>
-          {activeTab === 'achievements' && (
-            <AchievementsPane
-              achievements={achievements}
-            />
-          )}
         </div>
 
         {/* Right pane */}
@@ -847,7 +903,6 @@ export default function NewUIPage() {
           onChangeModel={(modelId) => changeAgentModel(editingAgent.id, modelId)}
         />
       )}
-
 
       {achievementToasts.length > 0 && (
         <div className="pointer-events-none fixed right-5 top-20 z-[70] flex w-[320px] flex-col gap-2">
@@ -889,6 +944,295 @@ export default function NewUIPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* ========= IPO OVERLAY — 3-panel flow ========= */}
+      {ipoPanel === 1 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.25)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="IPO Acquisition"
+        >
+          <div
+            className="w-full max-w-[480px] bg-white p-8 text-center"
+            style={{ borderRadius: 20, border: '1px solid #d9d9d9', boxShadow: '0px 8px 32px rgba(0,0,0,0.12)' }}
+          >
+            <span className="text-6xl" aria-hidden>🎉</span>
+            <p
+              className="mt-3 uppercase tracking-widest"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 700, color: '#b3b3b3' }}
+            >
+              Acquisition
+            </p>
+            <h1
+              className="mt-2"
+              style={{ fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)', fontSize: 40, fontWeight: 700, lineHeight: 1.2, letterSpacing: '-0.8px', color: 'black' }}
+            >
+              Acquired for ${formatNumber(ipoValuation)}
+            </h1>
+            <p
+              className="mt-3"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 16, fontWeight: 400, lineHeight: 1.5, color: '#1e1e1e' }}
+            >
+              Congratulations — your AI empire is going public.
+            </p>
+            <p
+              className="mt-2 italic"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 400, lineHeight: 1.5, color: '#b3b3b3' }}
+            >
+              {ipoFlavorLine}
+            </p>
+            <button
+              type="button"
+              onClick={() => setIpoPanel(2)}
+              className="mt-6 px-6 cursor-pointer transition-all active:translate-y-[3px] active:shadow-none"
+              style={{
+                fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+                fontSize: 16, fontWeight: 700, color: '#f5f5f5',
+                background: '#1fc46a', borderRadius: 8, padding: '12px 24px',
+                boxShadow: '0px 4px 0px 0px #00a657',
+              }}
+            >
+              See your stats →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ipoPanel === 2 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.25)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="IPO Result Card"
+        >
+          <div
+            className="w-full max-w-[480px] bg-white p-6"
+            style={{ borderRadius: 20, border: '1px solid #d9d9d9', boxShadow: '0px 8px 32px rgba(0,0,0,0.12)' }}
+          >
+            <p
+              className="uppercase tracking-widest"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 700, color: '#b3b3b3' }}
+            >
+              Result Card
+            </p>
+            <h2
+              className="mt-2"
+              style={{ fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)', fontSize: 24, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.48px', color: 'black' }}
+            >
+              {ipoCompanyName}
+            </h2>
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {[
+                { label: 'Valuation', value: `$${formatNumber(ipoValuation)}`, color: '#1fc46a' },
+                { label: 'Revenue', value: `$${formatNumber(totalEarned)}`, color: '#3f81ea' },
+                { label: 'Users', value: formatNumber(userbase), color: '#8b5cf6' },
+                { label: 'Agents', value: String(totalAgentCount), color: '#f97316' },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="px-3 py-3"
+                  style={{ border: '1px solid #d9d9d9', borderRadius: 8, boxShadow: '0px 2px 0px 0px #cdcdcd' }}
+                >
+                  <p
+                    style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 700, color: '#b3b3b3' }}
+                  >
+                    {stat.label}
+                  </p>
+                  <p
+                    className="mt-1 tabular-nums"
+                    style={{ fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)', fontSize: 20, fontWeight: 700, color: stat.color }}
+                  >
+                    {stat.value}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {agents.some((a) => a.count > 0) && (
+              <div
+                className="mt-4 px-3 py-3"
+                style={{ border: '1px solid #d9d9d9', borderRadius: 8, boxShadow: '0px 2px 0px 0px #cdcdcd' }}
+              >
+                <p
+                  className="mb-2"
+                  style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 700, color: '#b3b3b3' }}
+                >
+                  YOUR TEAM
+                </p>
+                <div className="flex flex-col gap-1">
+                  {agents.filter((a) => a.count > 0).map((agent, idx) => (
+                    <div
+                      key={agent.id}
+                      className="flex items-center justify-between px-1 py-1.5"
+                      style={{ background: idx % 2 === 0 ? '#f5f5f5' : '#e6e6e6', borderRadius: 4 }}
+                    >
+                      <span
+                        style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 500, color: '#1e1e1e' }}
+                      >
+                        {agent.emoji} {agent.name}
+                      </span>
+                      <span
+                        className="tabular-nums"
+                        style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 700, color: '#b3b3b3' }}
+                      >
+                        x{agent.count}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div
+              className="mt-4 flex items-center justify-between px-3 py-3"
+              style={{ background: 'rgba(31,196,106,0.06)', border: '1px solid #1fc46a', borderRadius: 8 }}
+            >
+              <span
+                style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 700, color: '#1e1e1e' }}
+              >
+                🏆 Reputation earned
+              </span>
+              <span
+                className="tabular-nums"
+                style={{ fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)', fontSize: 20, fontWeight: 700, color: '#1fc46a' }}
+              >
+                +{ipoReputationGain}
+              </span>
+            </div>
+
+            <p
+              className="mt-4 text-center"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 400, color: '#b3b3b3' }}
+            >
+              AI Agent Empire · Bitcamp 2026
+            </p>
+
+            <button
+              type="button"
+              onClick={() => setIpoPanel(3)}
+              className="w-full mt-4 cursor-pointer transition-all active:translate-y-[3px] active:shadow-none"
+              style={{
+                fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+                fontSize: 16, fontWeight: 700, color: '#f5f5f5',
+                background: '#1fc46a', borderRadius: 8, padding: 12,
+                boxShadow: '0px 4px 0px 0px #00a657',
+              }}
+            >
+              Claim reputation and upgrade →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ipoPanel === 3 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.25)' }}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reputation Shop"
+        >
+          <div
+            className="w-full max-w-[480px] max-h-[90vh] overflow-auto bg-white p-6"
+            style={{ borderRadius: 20, border: '1px solid #d9d9d9', boxShadow: '0px 8px 32px rgba(0,0,0,0.12)' }}
+          >
+            <div className="flex items-center justify-between pb-2 mb-4" style={{ borderBottom: '1px solid #d9d9d9' }}>
+              <h2
+                style={{ fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)', fontSize: 24, fontWeight: 600, lineHeight: 1.2, letterSpacing: '-0.48px', color: 'black' }}
+              >
+                Reputation Shop
+              </h2>
+              <span
+                className="rounded-full px-3 py-1 tabular-nums"
+                style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 700, color: '#f5f5f5', background: '#1fc46a' }}
+              >
+                {formatNumber(reputation)} pts
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2 mb-4">
+              {reputationUpgrades.map((upgrade) => {
+                const canBuy = !upgrade.purchased && reputation >= upgrade.cost
+                return (
+                  <button
+                    key={upgrade.id}
+                    type="button"
+                    onClick={() => buyReputationUpgrade(upgrade.id)}
+                    disabled={upgrade.purchased || reputation < upgrade.cost}
+                    className="text-left w-full flex items-center justify-between gap-2 px-3 py-3 transition-all"
+                    style={{
+                      border: upgrade.purchased ? '1px solid #1fc46a' : '1px solid #d9d9d9',
+                      borderRadius: 8,
+                      boxShadow: upgrade.purchased ? 'none' : '0px 2px 0px 0px #cdcdcd',
+                      background: upgrade.purchased ? 'rgba(31,196,106,0.06)' : canBuy ? 'white' : '#f5f5f5',
+                      opacity: !upgrade.purchased && !canBuy ? 0.5 : 1,
+                      cursor: upgrade.purchased ? 'default' : canBuy ? 'pointer' : 'not-allowed',
+                    }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p
+                        style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 700, color: '#1e1e1e' }}
+                      >
+                        {upgrade.name}
+                      </p>
+                      <p
+                        style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 400, color: '#b3b3b3' }}
+                      >
+                        {upgrade.description}
+                      </p>
+                    </div>
+                    {upgrade.purchased ? (
+                      <span
+                        className="shrink-0"
+                        style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 12, fontWeight: 700, color: '#1fc46a' }}
+                      >
+                        ✓ Active
+                      </span>
+                    ) : (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 tabular-nums whitespace-nowrap"
+                        style={{
+                          fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+                          fontSize: 12, fontWeight: 700,
+                          color: canBuy ? '#f5f5f5' : '#b3b3b3',
+                          background: canBuy ? '#1fc46a' : '#d9d9d9',
+                        }}
+                      >
+                        {upgrade.cost} pts
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            <p
+              className="text-center mb-4"
+              style={{ fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)', fontSize: 14, fontWeight: 400, lineHeight: 1.5, color: '#b3b3b3' }}
+            >
+              Your agents, cash, and users will reset.<br />Reputation and upgrades carry over.
+            </p>
+
+            <button
+              type="button"
+              onClick={pivot}
+              className="w-full cursor-pointer transition-all active:translate-y-[3px] active:shadow-none"
+              style={{
+                fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+                fontSize: 16, fontWeight: 700, color: '#f5f5f5',
+                background: '#1fc46a', borderRadius: 8, padding: 12,
+                boxShadow: '0px 4px 0px 0px #00a657',
+              }}
+            >
+              🔄 Start New Run
+            </button>
+          </div>
         </div>
       )}
     </div>
