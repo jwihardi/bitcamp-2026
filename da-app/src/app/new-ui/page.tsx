@@ -94,18 +94,28 @@ export default function NewUIPage() {
   const purchasedAgentTypesRef = useRef(new Set<string>())
   const prevStageIndexRef = useRef(0)
   const levelUpAudioRef = useRef<HTMLAudioElement | null>(null)
+  const userLevelUpAudioRef = useRef<HTMLAudioElement | null>(null)
+  const prevUserMilestoneIndexRef = useRef(0)
 
   const gameSpeed: number = 1
 
   useEffect(() => {
-    const audio = new Audio('/levelup.mp3')
-    audio.preload = 'auto'
-    levelUpAudioRef.current = audio
+    const roundAudio = new Audio('/levelup.mp3')
+    roundAudio.preload = 'auto'
+    levelUpAudioRef.current = roundAudio
+
+    const userAudio = new Audio('/user-levelup.mp3')
+    userAudio.preload = 'auto'
+    userLevelUpAudioRef.current = userAudio
 
     return () => {
-      audio.pause()
-      audio.src = ''
+      roundAudio.pause()
+      roundAudio.src = ''
       levelUpAudioRef.current = null
+
+      userAudio.pause()
+      userAudio.src = ''
+      userLevelUpAudioRef.current = null
     }
   }, [])
 
@@ -456,6 +466,28 @@ export default function NewUIPage() {
   useEffect(() => {
     advanceStage()
   }, [userbase, totalEarned, currentStageIndex, advanceStage])
+
+  useEffect(() => {
+    let achievedMilestoneIndex = 0
+    for (let i = 1; i < FUNDING_STAGES.length; i += 1) {
+      if (userbase >= FUNDING_STAGES[i].userRequirement) {
+        achievedMilestoneIndex = i
+      }
+    }
+
+    if (achievedMilestoneIndex > prevUserMilestoneIndexRef.current) {
+      prevUserMilestoneIndexRef.current = achievedMilestoneIndex
+      if (userLevelUpAudioRef.current) {
+        userLevelUpAudioRef.current.currentTime = 0
+        void userLevelUpAudioRef.current.play().catch(() => {})
+      }
+      return
+    }
+
+    if (achievedMilestoneIndex < prevUserMilestoneIndexRef.current) {
+      prevUserMilestoneIndexRef.current = achievedMilestoneIndex
+    }
+  }, [userbase])
 
   // ---- derived display values ----
 

@@ -16,7 +16,7 @@ interface Particle {
 
 const PARTICLE_COUNT = 8
 const PLAYLIST = ['/mozart1.mp3', '/mozart2.mp3', '/mozart3.mp3'] as const
-const PLAYLIST_VOLUME = 0.245
+const PLAYLIST_VOLUME = 0.49
 const COIN_SOUND = '/coin.mp3'
 const COIN_VOLUME = 0.75
 
