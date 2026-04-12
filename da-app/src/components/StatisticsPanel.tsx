@@ -306,10 +306,18 @@ export function StatisticsPanel({
                     <span className="text-xl leading-none">{MODEL_EMOJI[model.id] ?? '🤖'}</span>
                     <Text size="md" weight="bold" style={{ color: '#1e1e1e' }}>{model.name}</Text>
                   </div>
-                  <Text size="sm" style={{ color: '#666', lineHeight: 1.4 }}>
+                  <Text
+                    size="sm"
+                    className="!whitespace-normal"
+                    style={{ color: '#666', lineHeight: 1.4, overflowWrap: 'anywhere' }}
+                  >
                     {MODEL_DESCRIPTION[model.id] ?? ''}
                   </Text>
-                  <Text size="sm" style={{ color: '#b3b3b3', lineHeight: 1.4 }}>
+                  <Text
+                    size="sm"
+                    className="!whitespace-normal"
+                    style={{ color: '#b3b3b3', lineHeight: 1.4, overflowWrap: 'anywhere' }}
+                  >
                     ×{model.qualityMultiplier.toFixed(1)} quality · ${model.costPerToken}/tok
                   </Text>
                 </div>

@@ -2,7 +2,7 @@
 
 import { useRef, useState, type CSSProperties, type ReactNode } from 'react'
 
-const TOOLTIP_WIDTH = 220
+const TOOLTIP_WIDTH = 280
 const VIEWPORT_PADDING = 8
 
 type TooltipProps = {
@@ -42,7 +42,9 @@ export function Tooltip({ content, children, className }: TooltipProps) {
           style={{
             ...style,
             whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
             wordBreak: 'break-word',
+            lineHeight: 1.4,
             border: '1px solid var(--sds-color-border-default-default,#d9d9d9)',
             boxShadow: '0 2px 8px 0 rgba(0,0,0,0.08)',
           }}

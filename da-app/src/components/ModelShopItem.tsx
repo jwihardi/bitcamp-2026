@@ -11,7 +11,7 @@ const MODEL_ICONS: Record<ModelId, string> = {
   oracle_ultra: '🔮',
 }
 
-const TOOLTIP_WIDTH = 208 // w-52
+const TOOLTIP_WIDTH = 280
 const VIEWPORT_PADDING = 8
 
 type ModelShopItemProps = {
@@ -82,9 +82,13 @@ export function ModelShopItem({ model }: ModelShopItemProps) {
       {/* Tooltip */}
       {visible && (
         <div
-          className="z-50 w-52 rounded-xl bg-white p-3"
+          className="z-50 rounded-xl bg-white p-3"
           style={{
             ...tooltipStyle,
+            width: TOOLTIP_WIDTH,
+            whiteSpace: 'normal',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
             border: '1px solid var(--sds-color-border-default-default, #d9d9d9)',
             boxShadow: '0 2px 8px 0 rgba(0,0,0,0.08)',
           }}
