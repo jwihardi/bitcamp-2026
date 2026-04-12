@@ -7,7 +7,9 @@ type MoneyPileProps = {
   percentage: number
   /** Company name displayed in the badge. */
   companyName?: string
-  /** Users added per second across all marketing agents. */
+  /** Current total user count. */
+  userCount?: number
+  /** Users added per second across all agents. */
   usersPerSecond?: number
   className?: string
   onGoldButtonClick?: () => void
@@ -22,6 +24,7 @@ function formatPerSecond(n: number): string {
 export function MoneyPile({
   percentage,
   companyName = 'Your Company',
+  userCount = 0,
   usersPerSecond = 0,
   className,
   onGoldButtonClick,
@@ -57,13 +60,16 @@ export function MoneyPile({
           </p>
         </div>
 
-        {/* Click prompt + per-second stat */}
+        {/* Click prompt + live stats */}
         <div className="flex flex-col items-center text-black text-center">
           <p className="text-xl leading-tight" style={{ fontFamily: 'Nunito, sans-serif' }}>
             Click to attract users!
           </p>
-          <p className="text-base leading-snug" style={{ fontFamily: 'Nunito, sans-serif' }}>
-            per second: {formatPerSecond(usersPerSecond)}
+          <p className="text-2xl font-bold leading-snug tabular-nums" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            {formatPerSecond(userCount)} users
+          </p>
+          <p className="text-base leading-snug opacity-70" style={{ fontFamily: 'Nunito, sans-serif' }}>
+            +{formatPerSecond(usersPerSecond)}/sec
           </p>
         </div>
 
