@@ -131,7 +131,7 @@ function TrendChartCard({
 
   return (
     <div
-      className="flex w-full flex-col gap-3 rounded-xl px-3 py-3"
+      className="flex aspect-square w-full min-h-[340px] flex-col gap-3 rounded-xl px-3 py-3"
       style={{
         border: '1px solid #d9d9d9',
         boxShadow: '0px 2px 0px 0px #cdcdcd',
@@ -177,8 +177,8 @@ function TrendChartCard({
         </p>
       </div>
 
-      <div className="w-full overflow-hidden rounded-lg" style={{ background: '#f5f5f5' }}>
-        <svg viewBox={`0 0 ${width} ${height}`} className="h-[180px] w-full" preserveAspectRatio="none" aria-label={`${title} trend chart`}>
+      <div className="w-full flex-1 min-h-0 overflow-hidden rounded-lg" style={{ background: '#f5f5f5' }}>
+        <svg viewBox={`0 0 ${width} ${height}`} className="h-full w-full" preserveAspectRatio="none" aria-label={`${title} trend chart`}>
           <line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke="#d4d4d4" strokeWidth={1} />
           <line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke="#e5e7eb" strokeWidth={1} />
           <line x1={padding} y1={(height - padding * 2) * 0.33 + padding} x2={width - padding} y2={(height - padding * 2) * 0.33 + padding} stroke="#ececec" strokeWidth={1} />
@@ -276,6 +276,60 @@ export function StatisticsPanel({
     nextStage && nextStage.profitRequirement > 0
       ? Math.min(100, Math.max(0, (profitPerSecond / nextStage.profitRequirement) * 100))
       : 100
+
+  const chartCards: TrendChartCardProps[] = [
+    {
+      title: 'Net profit',
+      totalLabel: 'Total',
+      totalValue: lifetimeRevenue,
+      history: lifetimeProfitHistory,
+      lineColor: '#1fc46a',
+      areaColor: 'rgba(31,196,106,0.16)',
+    },
+    {
+      title: 'Operating cost',
+      totalLabel: 'Total',
+      totalValue: lifetimeCosts,
+      history: lifetimeCostHistory,
+      lineColor: '#f97316',
+      areaColor: 'rgba(249,115,22,0.16)',
+    },
+    {
+      title: 'Treasury balance',
+      totalLabel: 'Current',
+      totalValue: tokens,
+      history: cashHistory,
+      lineColor: '#2563eb',
+      areaColor: 'rgba(37,99,235,0.16)',
+    },
+    {
+      title: 'Active users',
+      totalLabel: 'Current',
+      totalValue: Math.floor(userbase),
+      history: userbaseHistory,
+      lineColor: '#0ea5a4',
+      areaColor: 'rgba(14,165,164,0.16)',
+      valueFormatter: (value) => formatNumber(value),
+    },
+    {
+      title: 'Users per second',
+      totalLabel: 'Current',
+      totalValue: usersPerSecond,
+      history: usersPerSecondHistory,
+      lineColor: '#8b5cf6',
+      areaColor: 'rgba(139,92,246,0.16)',
+      valueFormatter: (value) => `${formatNumber(value)}/s`,
+    },
+    {
+      title: 'Net income per second',
+      totalLabel: 'Current',
+      totalValue: profitPerSecond,
+      history: profitPerSecondHistory,
+      lineColor: '#dc2626',
+      areaColor: 'rgba(220,38,38,0.16)',
+      valueFormatter: (value) => `$${formatNumber(value)}/s`,
+    },
+  ]
 
   return (
     <div
@@ -420,81 +474,14 @@ export function StatisticsPanel({
         </div>
       </div>
 
-      {/* Lifetime profits */}
       <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>Lifetime profits</SectionHeading>
-        <TrendChartCard
-          title="Net profit"
-          totalLabel="Total"
-          totalValue={lifetimeRevenue}
-          history={lifetimeProfitHistory}
-          lineColor="#1fc46a"
-          areaColor="rgba(31,196,106,0.16)"
-        />
+        <SectionHeading>Charts</SectionHeading>
       </div>
 
-      {/* Lifetime costs */}
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>Lifetime costs</SectionHeading>
-        <TrendChartCard
-          title="Operating cost"
-          totalLabel="Total"
-          totalValue={lifetimeCosts}
-          history={lifetimeCostHistory}
-          lineColor="#f97316"
-          areaColor="rgba(249,115,22,0.16)"
-        />
-      </div>
-
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>Cash balance</SectionHeading>
-        <TrendChartCard
-          title="Treasury balance"
-          totalLabel="Current"
-          totalValue={tokens}
-          history={cashHistory}
-          lineColor="#2563eb"
-          areaColor="rgba(37,99,235,0.16)"
-        />
-      </div>
-
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>User growth</SectionHeading>
-        <TrendChartCard
-          title="Active users"
-          totalLabel="Current"
-          totalValue={Math.floor(userbase)}
-          history={userbaseHistory}
-          lineColor="#0ea5a4"
-          areaColor="rgba(14,165,164,0.16)"
-          valueFormatter={(value) => formatNumber(value)}
-        />
-      </div>
-
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>User throughput</SectionHeading>
-        <TrendChartCard
-          title="Users per second"
-          totalLabel="Current"
-          totalValue={usersPerSecond}
-          history={usersPerSecondHistory}
-          lineColor="#8b5cf6"
-          areaColor="rgba(139,92,246,0.16)"
-          valueFormatter={(value) => `${formatNumber(value)}/s`}
-        />
-      </div>
-
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>Profit velocity</SectionHeading>
-        <TrendChartCard
-          title="Net income per second"
-          totalLabel="Current"
-          totalValue={profitPerSecond}
-          history={profitPerSecondHistory}
-          lineColor="#dc2626"
-          areaColor="rgba(220,38,38,0.16)"
-          valueFormatter={(value) => `$${formatNumber(value)}/s`}
-        />
+      <div className="grid w-full grid-cols-1 gap-4 md:grid-cols-2">
+        {chartCards.map((chart) => (
+          <TrendChartCard key={chart.title} {...chart} />
+        ))}
       </div>
     </div>
   )

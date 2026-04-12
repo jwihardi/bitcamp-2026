@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { PromptEvaluation } from '@/lib/types'
 import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 import {
@@ -16,10 +16,13 @@ import { LeftPanel } from '@/components/LeftPanel'
 import { RightPanel } from '@/components/RightPanel'
 import { UpgradesPane } from '@/components/UpgradesPane'
 import { StatisticsPanel } from '@/components/StatisticsPanel'
+import { AchievementsPane } from '@/components/AchievementsPane'
 import { AgentEditorModal } from '@/components/AgentEditorModal'
 import { CTOPanel, type CtoReport } from '@/components/CTOPanel'
+import { buildAchievements, type AchievementMetrics } from '@/lib/achievements'
 
 type HistoryPoint = { time: number; value: number }
+type AchievementToast = { key: string; id: string; title: string; emoji: string }
 
 // ---- helpers ----
 
@@ -86,6 +89,7 @@ export default function NewUIPage() {
   const [usersPerSecondHistory, setUsersPerSecondHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
   const [profitPerSecondHistory, setProfitPerSecondHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
+  const [achievementToasts, setAchievementToasts] = useState<AchievementToast[]>([])
   // Modal state
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
   const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
@@ -119,6 +123,7 @@ export default function NewUIPage() {
   const usersPerSecondRef = useRef(0)
   const profitPerSecondRef = useRef(0)
   const toolNotificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const announcedAchievementIdsRef = useRef<Set<string>>(new Set())
 
   const gameSpeed: number = 1
 
@@ -620,6 +625,62 @@ export default function NewUIPage() {
   const usersPerSecond = getTotalUsersPerSecond()
   const passiveProfitPerSecond = getRevenueFromUsers() - getTotalOperatingCost()
   const unlockedModels = models.filter((m) => m.unlocked)
+  const totalAgents = agents.reduce((sum, agent) => sum + agent.count, 0)
+  const purchasedUpgrades = reputationUpgrades.filter((upgrade) => upgrade.purchased).length
+  const maxPromptQuality = agents.reduce((max, agent) => Math.max(max, agent.promptQuality), 0)
+
+  const achievementMetrics: AchievementMetrics = useMemo(() => ({
+    tokens,
+    userbase,
+    totalEarned,
+    lifetimeRevenue,
+    lifetimeCosts,
+    usersPerSecond,
+    profitPerSecond: passiveProfitPerSecond,
+    elapsedGameSeconds,
+    totalAgents,
+    unlockedModels: unlockedModels.length,
+    totalModels: models.length,
+    purchasedUpgrades,
+    totalUpgrades: reputationUpgrades.length,
+    maxPromptQuality,
+    currentStageIndex,
+  }), [
+    tokens,
+    userbase,
+    totalEarned,
+    lifetimeRevenue,
+    lifetimeCosts,
+    usersPerSecond,
+    passiveProfitPerSecond,
+    elapsedGameSeconds,
+    totalAgents,
+    unlockedModels.length,
+    models.length,
+    purchasedUpgrades,
+    reputationUpgrades.length,
+    maxPromptQuality,
+    currentStageIndex,
+  ])
+
+  const achievements = useMemo(() => buildAchievements(achievementMetrics), [achievementMetrics])
+
+  useEffect(() => {
+    const newlyUnlocked = achievements.filter(
+      (achievement) => achievement.unlocked && !announcedAchievementIdsRef.current.has(achievement.id),
+    )
+
+    if (newlyUnlocked.length === 0) return
+
+    for (const achievement of newlyUnlocked) {
+      announcedAchievementIdsRef.current.add(achievement.id)
+      const key = `${achievement.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+      setAchievementToasts((prev) => [...prev, { key, id: achievement.id, title: achievement.title, emoji: achievement.emoji }].slice(-4))
+      setTimeout(() => {
+        setAchievementToasts((prev) => prev.filter((toast) => toast.key !== key))
+      }, 4200)
+    }
+  }, [achievements])
 
   usersPerSecondRef.current = usersPerSecond
   profitPerSecondRef.current = passiveProfitPerSecond
@@ -751,6 +812,11 @@ export default function NewUIPage() {
               />
             </div>
           </div>
+          {activeTab === 'achievements' && (
+            <AchievementsPane
+              achievements={achievements}
+            />
+          )}
         </div>
 
         {/* Right pane */}
@@ -782,6 +848,49 @@ export default function NewUIPage() {
         />
       )}
 
+
+      {achievementToasts.length > 0 && (
+        <div className="pointer-events-none fixed right-5 top-20 z-[70] flex w-[320px] flex-col gap-2">
+          {achievementToasts.map((toast) => (
+            <div
+              key={toast.key}
+              className="rounded-xl px-3 py-3"
+              style={{
+                border: '1px solid var(--sds-color-text-brand-tertiary,#1fc46a)',
+                background: 'rgba(255,255,255,0.96)',
+                boxShadow: '0px 8px 24px rgba(0,0,0,0.12)',
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
+                  fontSize: 12,
+                  fontWeight: 800,
+                  lineHeight: 1,
+                  color: 'var(--sds-color-text-brand-tertiary,#1fc46a)',
+                  letterSpacing: '0.06em',
+                }}
+              >
+                ACHIEVEMENT UNLOCKED
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-lg leading-none" aria-hidden>{toast.emoji}</span>
+                <p
+                  style={{
+                    fontFamily: 'var(--sds-typography-family-serif, "Noto Serif", serif)',
+                    fontSize: 18,
+                    fontWeight: 700,
+                    lineHeight: 1.2,
+                    color: 'black',
+                  }}
+                >
+                  {toast.title}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
