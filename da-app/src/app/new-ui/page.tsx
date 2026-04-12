@@ -66,6 +66,7 @@ export default function NewUIPage() {
   const [agents, setAgents] = useState<Agent[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).agents)
   const [models, setModels] = useState<Model[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).models)
   const [clickPower, setClickPower] = useState(1)
+  const [companyName, setCompanyName] = useState('Your Company')
   const [totalEarned, setTotalEarned] = useState(0)
   const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
@@ -315,11 +316,6 @@ export default function NewUIPage() {
   const passiveProfitPerSecond = getRevenueFromUsers() - getTotalOperatingCost()
   const unlockedModels = models.filter((m) => m.unlocked)
 
-  const companyName = (() => {
-    const firstHired = agents.find((a) => a.count > 0)
-    return firstHired ? `${firstHired.name} & Co.` : 'Your Company'
-  })()
-
   // ---- modal derived ----
 
   const editingAgent = editingAgentId ? agents.find((a) => a.id === editingAgentId) ?? null : null
@@ -341,6 +337,7 @@ export default function NewUIPage() {
             userCount={Math.floor(userbase)}
             passiveProfitPerSecond={passiveProfitPerSecond}
             companyName={companyName}
+            onCompanyNameChange={setCompanyName}
             onGoldButtonClick={handleClick}
           />
         </div>

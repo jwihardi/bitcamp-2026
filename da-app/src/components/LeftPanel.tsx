@@ -7,6 +7,7 @@ type LeftPanelProps = {
   userCount: number
   passiveProfitPerSecond: number
   companyName: string
+  onCompanyNameChange: (name: string) => void
   onGoldButtonClick: () => void
 }
 
@@ -15,6 +16,7 @@ export function LeftPanel({
   userCount,
   passiveProfitPerSecond,
   companyName,
+  onCompanyNameChange,
   onGoldButtonClick,
 }: LeftPanelProps) {
   return (
@@ -22,6 +24,7 @@ export function LeftPanel({
       percentage={percentage}
       userCount={userCount}
       companyName={companyName}
+      onCompanyNameChange={onCompanyNameChange}
       passiveProfitPerSecond={passiveProfitPerSecond}
       onGoldButtonClick={onGoldButtonClick}
     />

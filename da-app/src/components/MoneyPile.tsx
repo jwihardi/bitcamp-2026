@@ -7,6 +7,8 @@ type MoneyPileProps = {
   percentage: number
   /** Company name displayed in the badge. */
   companyName?: string
+  /** Controlled update handler for the company name. */
+  onCompanyNameChange?: (name: string) => void
   /** Current total user count. */
   userCount?: number
   /** Passive money generated per second, excluding clicks. */
@@ -24,6 +26,7 @@ function formatPerSecond(n: number): string {
 export function MoneyPile({
   percentage,
   companyName = 'Your Company',
+  onCompanyNameChange,
   userCount = 0,
   passiveProfitPerSecond = 0,
   className,
@@ -69,12 +72,29 @@ export function MoneyPile({
       <div className="relative flex flex-col items-center gap-2 pt-8 px-4" style={{ zIndex: 2 }}>
         {/* Company name badge */}
         <div className="bg-black/20 rounded-lg px-16 py-[2px]">
-          <p
-            className="text-[#f3f3f3] text-2xl font-semibold leading-tight whitespace-nowrap"
-            style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
-          >
-            {companyName}
-          </p>
+          {onCompanyNameChange ? (
+            <input
+              type="text"
+              value={companyName}
+              onChange={(event) => onCompanyNameChange(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur()
+                }
+              }}
+              maxLength={32}
+              placeholder="Your Company"
+              className="min-w-[220px] w-full bg-transparent border-none outline-none text-center text-black/35 placeholder:text-black/25 text-2xl font-semibold leading-tight caret-black/40"
+              style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
+            />
+          ) : (
+            <p
+              className="text-black/35 text-2xl font-semibold leading-tight whitespace-nowrap"
+              style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
+            >
+              {companyName}
+            </p>
+          )}
         </div>
 
         {/* Click prompt + live stats */}
