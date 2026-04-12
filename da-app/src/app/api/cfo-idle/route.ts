@@ -13,6 +13,8 @@ type CfoIdleAgent = {
   count: number
   promptQuality: number
   model: string
+  prompt: string
+  evaluationExplanation: string | null
 }
 
 type CfoIdlePayload = {
@@ -33,12 +35,25 @@ type CachedReport = {
     verdict: string
     advice: string[]
     lesson: { topic: string; body: string }
+    promptCoaching: {
+      agentName: string
+      quality: number
+      summary: string
+      tips: string[]
+    }[]
   }
   expiresAt: number
 }
 
 const CFO_CACHE_TTL_MS = 45_000
 const cfoCache = new Map<string, CachedReport>()
+const MAX_PROMPT_WORDS = 80
+
+function truncatePrompt(prompt: string): string {
+  const words = prompt.trim().split(/\s+/).filter(Boolean)
+  if (words.length <= MAX_PROMPT_WORDS) return prompt.trim()
+  return `${words.slice(0, MAX_PROMPT_WORDS).join(' ')} …`
+}
 
 function buildPrompt(p: CfoIdlePayload, compact = false): string {
   const agentLines =
@@ -47,9 +62,13 @@ function buildPrompt(p: CfoIdlePayload, compact = false): string {
       : p.agents
           .map(
             (a) =>
-              `  - ${a.name} ×${a.count} (prompt quality: ${a.promptQuality}%, model: ${a.model})`,
+              `  - ${a.name} ×${a.count} (prompt quality: ${a.promptQuality}%, model: ${a.model})${
+                a.evaluationExplanation ? `\n    Last eval: ${a.evaluationExplanation}` : ''
+              }${a.prompt ? `\n    Prompt: "${a.prompt}"` : '\n    Prompt: [none written]'}`,
           )
           .join('\n')
+
+  const hasPromptsToCoach = p.agents.some((a) => a.prompt || a.promptQuality < 70)
 
   return `You are the AI CFO in an idle startup simulation game called "AI Agent Empire". \
 Give strategic advice on growing users, managing token costs, and advancing funding stages. \
@@ -68,7 +87,9 @@ Company state:
 Active agents:
 ${agentLines}
 
-Respond ONLY with valid JSON. No markdown. No code fences.${compact ? ' Keep strings short.' : ''}
+${hasPromptsToCoach ? 'Also give prompt coaching for up to 3 weakest prompts. Explain plainly whether the prompt is good, weak, or missing, why, and exactly how to improve it. If a prompt is already solid, say what is working and one concrete upgrade. Keep coaching grounded in the actual prompt text shown.' : ''}
+
+Respond ONLY with valid JSON. No markdown. No code fences.${compact ? ' Keep strings short. Keep coaching summaries under 90 characters. Keep each coaching tip under 80 characters.' : ''}
 {
   "health": "<healthy|warning|critical>",
   "verdict": "<one sentence on overall company health>",
@@ -80,7 +101,18 @@ Respond ONLY with valid JSON. No markdown. No code fences.${compact ? ' Keep str
   "lesson": {
     "topic": "<short label e.g. 'Burn Rate', 'Token Efficiency', 'Growth Hacking'>",
     "body": "<2-3 sentences teaching a startup concept tied to the player's current situation>"
-  }
+  },
+  "promptCoaching": [
+    {
+      "agentName": "<agent name>",
+      "quality": <0-100 prompt quality>,
+      "summary": "<say if prompt is good, weak, or missing and why>",
+      "tips": [
+        "<specific improvement #1>",
+        "<specific improvement #2>"
+      ]
+    }
+  ]
 }`
 }
 
@@ -106,6 +138,11 @@ function validatePayload(body: unknown): CfoIdlePayload {
       count: typeof ag.count === 'number' ? Math.max(0, Math.floor(ag.count)) : 0,
       promptQuality: typeof ag.promptQuality === 'number' ? Math.round(ag.promptQuality) : 50,
       model: typeof ag.model === 'string' ? ag.model : 'Nimbus-1',
+      prompt: typeof ag.prompt === 'string' ? truncatePrompt(ag.prompt) : '',
+      evaluationExplanation:
+        typeof ag.evaluationExplanation === 'string' && ag.evaluationExplanation.trim().length > 0
+          ? ag.evaluationExplanation
+          : null,
     }
   })
 
@@ -148,11 +185,38 @@ function parseReport(text: string): CachedReport['report'] {
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     .slice(0, 3)
 
+  const promptCoaching = Array.isArray(parsed.promptCoaching)
+    ? (parsed.promptCoaching as unknown[])
+        .flatMap((item) => {
+          if (typeof item !== 'object' || item === null) return []
+          const entry = item as Record<string, unknown>
+          if (typeof entry.agentName !== 'string') return []
+          if (typeof entry.summary !== 'string' || !entry.summary.trim()) return []
+          const tips = Array.isArray(entry.tips)
+            ? entry.tips
+                .filter((tip): tip is string => typeof tip === 'string' && tip.trim().length > 0)
+                .slice(0, 3)
+            : []
+          if (tips.length === 0) return []
+          return [{
+            agentName: entry.agentName,
+            quality:
+              typeof entry.quality === 'number'
+                ? Math.max(0, Math.min(100, Math.round(entry.quality)))
+                : 0,
+            summary: entry.summary,
+            tips,
+          }]
+        })
+        .slice(0, 3)
+    : []
+
   return {
     health: parsed.health as CfoHealth,
     verdict: parsed.verdict,
     advice,
     lesson: { topic: lesson.topic, body: lesson.body },
+    promptCoaching,
   }
 }
 

@@ -77,6 +77,12 @@ type CfoReport = {
   verdict: string
   advice: string[]
   lesson: { topic: string; body: string }
+  promptCoaching: {
+    agentName: string
+    quality: number
+    summary: string
+    tips: string[]
+  }[]
 }
 
 // ============ Component ============
@@ -390,6 +396,8 @@ export default function IdleGamePage() {
           count: a.count,
           promptQuality: Math.round(a.promptQuality),
           model: models.find((m) => m.id === a.selectedModel)?.name ?? a.selectedModel,
+          prompt: a.lastPrompt,
+          evaluationExplanation: a.lastEvaluation?.explanation ?? null,
         })),
     }
 
@@ -1406,6 +1414,46 @@ export default function IdleGamePage() {
                     </div>
                     <p className="text-[12px] text-[#78350f] leading-[18px]">{cfoReport.lesson.body}</p>
                   </div>
+
+                  {cfoReport.promptCoaching.length > 0 && (
+                    <div className="flex flex-col gap-[8px]">
+                      <p className="text-[11px] text-[#94a3b8] text-center uppercase tracking-[0.18em]">
+                        Prompt Coaching
+                      </p>
+                      {cfoReport.promptCoaching.map((entry) => (
+                        <div
+                          key={entry.agentName}
+                          className="bg-[#f8fafc] border border-[#e2e8f0] border-solid rounded-[14px] px-[14px] py-[12px]"
+                        >
+                          <div className="flex items-center justify-between gap-[12px] mb-[8px]">
+                            <p className="font-bold text-[13px] text-[#1e293b]">{entry.agentName}</p>
+                            <span
+                              className={`text-[11px] font-extrabold px-[8px] py-[3px] rounded-full ${
+                                entry.quality >= 70
+                                  ? 'bg-[#dcfce7] text-[#15803d]'
+                                  : entry.quality >= 40
+                                    ? 'bg-[#fef3c7] text-[#b45309]'
+                                    : 'bg-[#fee2e2] text-[#b91c1c]'
+                              }`}
+                            >
+                              {entry.quality}%
+                            </span>
+                          </div>
+                          <p className="text-[12px] text-[#475569] leading-[18px] mb-[8px]">
+                            {entry.summary}
+                          </p>
+                          <div className="flex flex-col gap-[6px]">
+                            {entry.tips.map((tip, i) => (
+                              <div key={`${entry.agentName}-${i}`} className="flex gap-[8px] items-start">
+                                <span className="text-[12px] text-[#64748b] leading-[18px]">•</span>
+                                <p className="text-[12px] text-[#334155] leading-[18px]">{tip}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
