@@ -12,7 +12,7 @@ You're the founder of a scrappy AI startup. You have $50,000 and no team.
 
 You hire agents — Sales, Marketing, Engineering, Finance — and write prompts that tell each one what to do. The better your prompts, the more revenue they generate. Every 3 seconds a tick fires. Your agents work. Your runway shrinks. Hit the milestone and raise your next round, or run out of money and it's over.
 
-The twist: **Google Gemini 2.5 Flash reads your prompts and scores them**. The score directly changes how much your agent earns each tick. You learn prompt engineering by playing a game that punishes bad prompts and rewards sharp ones.
+The twist: **TerpAI reads your prompts and scores them**. The score directly changes how much your agent earns each tick. You learn prompt engineering by playing a game that punishes bad prompts and rewards sharp ones.
 
 ---
 
@@ -79,7 +79,7 @@ Hit IPO → earn VC Chips (1 per $10M valuation) → spend on permanent upgrades
 ## AI Features
 
 ### Prompt Evaluator
-Hit **Evaluate** on any agent card. Costs $200 runway. Gemini 2.5 Flash scores your prompt 0–100, estimates tokens/tick, revenue/tick, token efficiency ratio, and gives a one-sentence critique. The score changes what your agent earns from every tick forward.
+Hit **Evaluate** on any agent card. Costs $200 runway. TerpAI scores your prompt 0–100, estimates tokens/tick, revenue/tick, token efficiency ratio, and gives a one-sentence critique. The score changes what your agent earns from every tick forward.
 
 ```
 Type: "do sales stuff"                              → 22/100. Revenue: ~$1,200/tick.
@@ -99,12 +99,12 @@ Costs $500. Looks at your entire company — burn rate, agent quality, runway, m
 
 - **Next.js 15** — App Router, server components, API routes
 - **React 19** — `useReducer` for single-source-of-truth game state
-- **Google Gemini 2.5 Flash** — prompt evaluation + CFO consultations (server-side only)
+- **TerpAI** — prompt evaluation + CFO consultations, accessed via **Playwright** (AI Agent web automation)
 - **TypeScript** — end-to-end
 - **Tailwind CSS 4** — all UI
 - **Deployed on Vercel**
 
-All AI calls go through server-side API routes — the Gemini key never touches the client. Evaluation results are cached on the agent object to avoid redundant calls. The tick engine runs client-side on `setInterval`, dispatching one atomic action per tick via `useReducer`.
+All AI calls are routed through Playwright-driven web automation — TerpAI is invoked server-side so credentials never touch the client. Evaluation results are cached on the agent object to avoid redundant calls. The tick engine runs client-side on `setInterval`, dispatching one atomic action per tick via `useReducer`.
 
 ---
 
