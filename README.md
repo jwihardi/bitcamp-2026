@@ -117,8 +117,8 @@ bitcamp-2026/
 │       ├── app/
 │       │   ├── page.tsx     # Main game page
 │       │   └── api/
-│       │       ├── evaluate/  # Gemini prompt evaluator
-│       │       └── cfo/       # Gemini CFO advisor
+│       │       ├── evaluate/  # AI prompt evaluator
+│       │       └── cfo/       # AI CFO advisor
 │       ├── components/        # All UI components
 │       │   ├── AgentCard.tsx
 │       │   ├── AgentGrid.tsx
@@ -153,12 +153,6 @@ bitcamp-2026/
 ```bash
 cd da-app
 pnpm install
-```
-
-Create a `.env.local` file:
-
-```
-GEMINI_API_KEY=your_key_here
 ```
 
 ```bash
