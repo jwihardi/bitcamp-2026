@@ -75,6 +75,10 @@ export default function NewUIPage() {
   const [elapsedGameSeconds, setElapsedGameSeconds] = useState(0)
   const [lifetimeProfitHistory, setLifetimeProfitHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
   const [lifetimeCostHistory, setLifetimeCostHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
+  const [cashHistory, setCashHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
+  const [userbaseHistory, setUserbaseHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
+  const [usersPerSecondHistory, setUsersPerSecondHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
+  const [profitPerSecondHistory, setProfitPerSecondHistory] = useState<HistoryPoint[]>([{ time: 0, value: 0 }])
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   // Modal state
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
@@ -104,6 +108,10 @@ export default function NewUIPage() {
   const prevUserMilestoneIndexRef = useRef(0)
   const lifetimeProfitRef = useRef(0)
   const lifetimeCostRef = useRef(0)
+  const cashRef = useRef(0)
+  const userbaseRef = useRef(0)
+  const usersPerSecondRef = useRef(0)
+  const profitPerSecondRef = useRef(0)
 
   const gameSpeed: number = 1
 
@@ -136,6 +144,14 @@ export default function NewUIPage() {
   }, [lifetimeCosts])
 
   useEffect(() => {
+    cashRef.current = tokens
+  }, [tokens])
+
+  useEffect(() => {
+    userbaseRef.current = userbase
+  }, [userbase])
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setElapsedGameSeconds((seconds) => {
         const next = seconds + 1
@@ -145,6 +161,22 @@ export default function NewUIPage() {
         })
         setLifetimeCostHistory((prev) => {
           const point: HistoryPoint = { time: next, value: lifetimeCostRef.current }
+          return [...prev, point].slice(-120)
+        })
+        setCashHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: cashRef.current }
+          return [...prev, point].slice(-120)
+        })
+        setUserbaseHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: userbaseRef.current }
+          return [...prev, point].slice(-120)
+        })
+        setUsersPerSecondHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: usersPerSecondRef.current }
+          return [...prev, point].slice(-120)
+        })
+        setProfitPerSecondHistory((prev) => {
+          const point: HistoryPoint = { time: next, value: profitPerSecondRef.current }
           return [...prev, point].slice(-120)
         })
         return next
@@ -534,6 +566,9 @@ export default function NewUIPage() {
   const passiveProfitPerSecond = getRevenueFromUsers() - getTotalOperatingCost()
   const unlockedModels = models.filter((m) => m.unlocked)
 
+  usersPerSecondRef.current = usersPerSecond
+  profitPerSecondRef.current = passiveProfitPerSecond
+
   // ---- modal derived ----
 
   const editingAgent = editingAgentId ? agents.find((a) => a.id === editingAgentId) ?? null : null
@@ -584,6 +619,10 @@ export default function NewUIPage() {
               elapsedGameSeconds={elapsedGameSeconds}
               lifetimeProfitHistory={lifetimeProfitHistory}
               lifetimeCostHistory={lifetimeCostHistory}
+              cashHistory={cashHistory}
+              userbaseHistory={userbaseHistory}
+              usersPerSecondHistory={usersPerSecondHistory}
+              profitPerSecondHistory={profitPerSecondHistory}
               usersPerSecond={usersPerSecond}
               clickPower={clickPower}
               currentStageIndex={currentStageIndex}

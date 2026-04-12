@@ -93,16 +93,27 @@ function StatRow({ label, value, stripe }: StatRowProps) {
 
 type TrendChartCardProps = {
   title: string
-  total: number
+  totalLabel: string
+  totalValue: number
   history: HistoryPoint[]
   lineColor: string
   areaColor: string
+  valueFormatter?: (value: number) => string
 }
 
-function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendChartCardProps) {
+function TrendChartCard({
+  title,
+  totalLabel,
+  totalValue,
+  history,
+  lineColor,
+  areaColor,
+  valueFormatter,
+}: TrendChartCardProps) {
   const width = 720
   const height = 180
   const padding = 14
+  const formatValue = valueFormatter ?? ((value: number) => `$${formatNumber(value)}`)
 
   const points = useMemo(() => {
     if (history.length === 0) return [{ x: padding, y: height - padding }]
@@ -167,7 +178,7 @@ function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendCh
               color: '#6b7280',
             }}
           >
-            Total ${formatNumber(total)}
+            {totalLabel} {formatValue(totalValue)}
           </p>
         </div>
         <p
@@ -180,7 +191,7 @@ function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendCh
             whiteSpace: 'nowrap',
           }}
         >
-          {delta >= 0 ? '+' : '-'}${formatNumber(Math.abs(delta))} in window
+          {delta >= 0 ? '+' : '-'}{formatValue(Math.abs(delta))} in window
         </p>
       </div>
 
@@ -205,7 +216,7 @@ function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendCh
             color: '#9ca3af',
           }}
         >
-          Start ${formatNumber(start)}
+          Start {formatValue(start)}
         </p>
         <p
           style={{
@@ -216,7 +227,7 @@ function TrendChartCard({ title, total, history, lineColor, areaColor }: TrendCh
             color: '#4b5563',
           }}
         >
-          Latest ${formatNumber(latest)}
+          Latest {formatValue(latest)}
         </p>
       </div>
     </div>
@@ -231,6 +242,10 @@ export type StatisticsPanelProps = {
   elapsedGameSeconds: number
   lifetimeProfitHistory: HistoryPoint[]
   lifetimeCostHistory: HistoryPoint[]
+  cashHistory: HistoryPoint[]
+  userbaseHistory: HistoryPoint[]
+  usersPerSecondHistory: HistoryPoint[]
+  profitPerSecondHistory: HistoryPoint[]
   usersPerSecond: number
   clickPower: number
   currentStageIndex: number
@@ -249,6 +264,10 @@ export function StatisticsPanel({
   elapsedGameSeconds,
   lifetimeProfitHistory,
   lifetimeCostHistory,
+  cashHistory,
+  userbaseHistory,
+  usersPerSecondHistory,
+  profitPerSecondHistory,
   usersPerSecond,
   clickPower,
   currentStageIndex,
@@ -499,7 +518,8 @@ export function StatisticsPanel({
         <SectionHeading>Lifetime profits</SectionHeading>
         <TrendChartCard
           title="Net profit"
-          total={lifetimeRevenue}
+          totalLabel="Total"
+          totalValue={lifetimeRevenue}
           history={lifetimeProfitHistory}
           lineColor="#1fc46a"
           areaColor="rgba(31,196,106,0.16)"
@@ -511,10 +531,62 @@ export function StatisticsPanel({
         <SectionHeading>Lifetime costs</SectionHeading>
         <TrendChartCard
           title="Operating cost"
-          total={lifetimeCosts}
+          totalLabel="Total"
+          totalValue={lifetimeCosts}
           history={lifetimeCostHistory}
           lineColor="#f97316"
           areaColor="rgba(249,115,22,0.16)"
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 items-start w-full shrink-0">
+        <SectionHeading>Cash balance</SectionHeading>
+        <TrendChartCard
+          title="Treasury balance"
+          totalLabel="Current"
+          totalValue={tokens}
+          history={cashHistory}
+          lineColor="#2563eb"
+          areaColor="rgba(37,99,235,0.16)"
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 items-start w-full shrink-0">
+        <SectionHeading>User growth</SectionHeading>
+        <TrendChartCard
+          title="Active users"
+          totalLabel="Current"
+          totalValue={Math.floor(userbase)}
+          history={userbaseHistory}
+          lineColor="#0ea5a4"
+          areaColor="rgba(14,165,164,0.16)"
+          valueFormatter={(value) => formatNumber(value)}
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 items-start w-full shrink-0">
+        <SectionHeading>User throughput</SectionHeading>
+        <TrendChartCard
+          title="Users per second"
+          totalLabel="Current"
+          totalValue={usersPerSecond}
+          history={usersPerSecondHistory}
+          lineColor="#8b5cf6"
+          areaColor="rgba(139,92,246,0.16)"
+          valueFormatter={(value) => `${formatNumber(value)}/s`}
+        />
+      </div>
+
+      <div className="flex flex-col gap-4 items-start w-full shrink-0">
+        <SectionHeading>Profit velocity</SectionHeading>
+        <TrendChartCard
+          title="Net income per second"
+          totalLabel="Current"
+          totalValue={profitPerSecond}
+          history={profitPerSecondHistory}
+          lineColor="#dc2626"
+          areaColor="rgba(220,38,38,0.16)"
+          valueFormatter={(value) => `$${formatNumber(value)}/s`}
         />
       </div>
     </div>
