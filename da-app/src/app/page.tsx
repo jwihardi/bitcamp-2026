@@ -1464,8 +1464,6 @@ function PromptEditorModal({
   onEvaluated: (prompt: string, evaluation: PromptEvaluation) => void
 }) {
   const [prompt, setPrompt] = useState(agent.lastPrompt)
-  const [result, setResult] = useState<PromptEvaluation | null>(agent.lastEvaluation)
-  const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [challenge] = useState(
     () => PROMPT_CHALLENGES[Math.floor(Math.random() * PROMPT_CHALLENGES.length)],
@@ -1473,30 +1471,26 @@ function PromptEditorModal({
 
   const tokenEstimate = Math.floor(prompt.length * 0.75)
 
-  const analyze = async () => {
+  const analyze = () => {
     if (!prompt.trim()) {
       setError('Write a prompt first.')
       return
     }
-    setLoading(true)
-    setError(null)
-    try {
-      const evaluation = await evaluateIdlePrompt(prompt, agent.id, {
-        stage,
-        users,
-        revenue,
-        agentCount,
+    const promptSnapshot = prompt
+    onClose()
+    void evaluateIdlePrompt(promptSnapshot, agent.id, {
+      stage,
+      users,
+      revenue,
+      agentCount,
+    })
+      .then(evaluation => onEvaluated(promptSnapshot, evaluation))
+      .catch(e => {
+        console.error('[PromptEditorModal] background evaluation failed', e instanceof Error ? e.message : e)
       })
-      setResult(evaluation)
-      onEvaluated(prompt, evaluation)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Evaluation failed.')
-    } finally {
-      setLoading(false)
-    }
   }
 
-  const displayQuality = result?.score ?? agent.promptQuality
+  const displayQuality = agent.promptQuality
 
   return (
     <div
@@ -1577,90 +1571,9 @@ function PromptEditorModal({
           className="w-full h-[128px] bg-white border-[2px] border-[#d1d5db] border-solid rounded-[16px] p-[16px] text-[#1e2939] text-[14px] leading-[20px] placeholder:text-[#9ca3af] focus:border-[#c27aff] focus:outline-none resize-none font-medium"
         />
 
-        {/* Error / result feedback */}
+        {/* Error feedback */}
         {error && (
           <p className="mt-[12px] text-[#b91c1c] text-[13px] font-bold">{error}</p>
-        )}
-        {result && !error && (
-          <div className="mt-[12px] flex flex-col gap-[10px]">
-            {/* Score + explanation */}
-            <div
-              className={`border-[2px] border-solid rounded-[16px] p-[16px] ${
-                result.score >= 70
-                  ? 'bg-[#f0fdf4] border-[#86efac]'
-                  : result.score >= 50
-                    ? 'bg-[#eff6ff] border-[#bfdbfe]'
-                    : 'bg-[#fff7ed] border-[#fed7aa]'
-              }`}
-            >
-              <div className="flex items-center justify-between mb-[8px]">
-                <p className="font-bold text-[14px] text-[#1e2939]">Evaluation Result</p>
-                <span
-                  className={`font-extrabold text-[20px] tabular-nums ${
-                    result.score >= 70
-                      ? 'text-[#00a63e]'
-                      : result.score >= 50
-                        ? 'text-[#1d4ed8]'
-                        : 'text-[#f97316]'
-                  }`}
-                >
-                  {result.score}/100
-                </span>
-              </div>
-              {result.explanation && (
-                <p className="font-normal text-[13px] text-[#4a5565] leading-[20px] mb-[10px]">
-                  {result.explanation}
-                </p>
-              )}
-              <div className="flex gap-[16px] flex-wrap">
-                <span className="font-bold text-[12px] text-[#6a7282]">
-                  ⚡ {formatNumber(result.estimatedTokensPerTick)} tok/tick
-                </span>
-                <span className="font-bold text-[12px] text-[#6a7282]">
-                  💰 ${formatNumber(result.estimatedRevenuePerTick)}/tick
-                </span>
-                <span className="font-bold text-[12px] text-[#6a7282]">
-                  📊 {result.tokenEfficiency.toFixed(2)} $/tok
-                </span>
-              </div>
-            </div>
-
-            {/* Improvement tips */}
-            {result.tips && result.tips.length > 0 && (
-              <div className="bg-[#fffbeb] border-[2px] border-[#fcd34d] border-solid rounded-[16px] p-[14px]">
-                <p className="font-bold text-[12px] text-[#92400e] uppercase tracking-wide mb-[8px]">
-                  💡 How to improve
-                </p>
-                <ul className="flex flex-col gap-[6px]">
-                  {result.tips.map((tip, i) => (
-                    <li key={i} className="flex items-start gap-[8px]">
-                      <span className="font-extrabold text-[12px] text-[#d97706] shrink-0 mt-[1px]">→</span>
-                      <p className="text-[12px] text-[#78350f] leading-[18px]">{tip}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Keywords */}
-            {result.keywords && result.keywords.length > 0 && (
-              <div className="bg-[#f5f3ff] border-[2px] border-[#c4b5fd] border-solid rounded-[16px] p-[14px]">
-                <p className="font-bold text-[12px] text-[#5b21b6] uppercase tracking-wide mb-[8px]">
-                  ✨ Recommended keywords
-                </p>
-                <div className="flex flex-wrap gap-[6px]">
-                  {result.keywords.map((kw) => (
-                    <span
-                      key={kw}
-                      className="font-bold text-[12px] text-[#5b21b6] bg-white border-[2px] border-[#c4b5fd] border-solid rounded-full px-[10px] py-[4px]"
-                    >
-                      {kw}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         )}
 
         {/* Current Prompt Quality */}
@@ -1684,13 +1597,10 @@ function PromptEditorModal({
         <button
           type="button"
           onClick={analyze}
-          disabled={loading}
-          className={`w-full h-[52px] rounded-[16px] font-bold text-[16px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-transform ${
-            loading ? 'opacity-70 cursor-not-allowed' : 'hover:-translate-y-0.5 cursor-pointer'
-          }`}
+          className="w-full h-[52px] rounded-[16px] font-bold text-[16px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-transform hover:-translate-y-0.5 cursor-pointer"
           style={{ backgroundImage: 'linear-gradient(to right, #c27aff, #f6339a)' }}
         >
-          {loading ? '⏳ Analyzing...' : '🔍 Analyze Prompt'}
+          🔍 Analyze Prompt
         </button>
       </div>
     </div>
