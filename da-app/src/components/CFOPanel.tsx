@@ -89,12 +89,13 @@ export function CFOPanel() {
   const roundAdvanced = prevRoundRef.current !== state.round
   const shouldRefreshAfterInteraction =
     stale && cfoActivityVersion > lastRefreshActivityRef.current
+  const shouldAutoRefresh = roundAdvanced || shouldRefreshAfterInteraction
   const rateLimited = retryAfterMs > 0
 
   const refreshCFO = useCallback(async (force = false) => {
     if (panelDisabled || inFlightRef.current) return
     if (!force && rateLimited) return
-    if (!force && !roundAdvanced && !shouldRefreshAfterInteraction && local != null) return
+    if (!force && !shouldAutoRefresh) return
     inFlightRef.current = true
     lastRefreshActivityRef.current = cfoActivityVersion
     setLoading(true)
@@ -180,14 +181,14 @@ export function CFOPanel() {
   useEffect(() => {
     if (panelDisabled || state.tickCount === 0) return
     if (rateLimited) return
-    if (!roundAdvanced && !shouldRefreshAfterInteraction && local != null) return
+    if (!shouldAutoRefresh) return
 
     const id = window.setTimeout(() => {
       void refreshCFO()
     }, local ? 900 : 1200)
 
     return () => window.clearTimeout(id)
-  }, [local, panelDisabled, rateLimited, refreshCFO, roundAdvanced, shouldRefreshAfterInteraction, state.tickCount])
+  }, [local, panelDisabled, rateLimited, refreshCFO, shouldAutoRefresh, state.tickCount])
 
   useEffect(() => {
     prevRoundRef.current = local?.round ?? prevRoundRef.current
