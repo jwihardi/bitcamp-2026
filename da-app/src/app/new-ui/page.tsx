@@ -10,9 +10,10 @@ import {
 } from '../game-config'
 import type { Model, Agent, ReputationUpgrade } from '../game-config'
 import { GameProvider } from '@/context/GameContext'
-import { HeaderView } from '@/components/Header'
+import { HeaderView, type HeaderTab } from '@/components/Header'
 import { LeftPanel } from '@/components/LeftPanel'
 import { RightPanel } from '@/components/RightPanel'
+import { UpgradesPane } from '@/components/UpgradesPane'
 import { StatisticsPanel } from '@/components/StatisticsPanel'
 
 // ---- copied from page.tsx ----
@@ -34,7 +35,8 @@ function getInitialState(upgrades: ReputationUpgrade[]) {
 }
 
 export default function NewUIPage() {
-  const [reputationUpgrades] = useState<ReputationUpgrade[]>(INITIAL_REPUTATION_UPGRADES)
+  const [activeTab, setActiveTab] = useState<HeaderTab>('stats')
+  const [reputationUpgrades, setReputationUpgrades] = useState<ReputationUpgrade[]>(INITIAL_REPUTATION_UPGRADES)
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
   const [userbase, setUserbase] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).userbase)
   const [agents] = useState<Agent[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).agents)
@@ -45,6 +47,19 @@ export default function NewUIPage() {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
 
   const gameSpeed = 1
+
+  // ---- reputation upgrade purchase ----
+
+  const [reputation, setReputation] = useState(0)
+
+  const buyReputationUpgrade = (upgradeId: string) => {
+    const upgrade = reputationUpgrades.find((u) => u.id === upgradeId)
+    if (!upgrade || upgrade.purchased || reputation < upgrade.cost) return
+    setReputation((r) => r - upgrade.cost)
+    setReputationUpgrades((prev) =>
+      prev.map((u) => (u.id === upgradeId ? { ...u, purchased: true } : u)),
+    )
+  }
 
   // ---- reputation bonuses (copied from page.tsx) ----
 
@@ -206,8 +221,12 @@ export default function NewUIPage() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: 'white' }}>
-      {/* Header reads from idle game state, not GameContext */}
-      <HeaderView arr={tokens} users={Math.floor(userbase)} />
+      <HeaderView
+        arr={tokens}
+        users={Math.floor(userbase)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
       <div className="flex flex-1 overflow-hidden">
         {/* Left pane — MoneyPile wired to page.tsx game mechanics */}
         <div className="border-r" style={{ borderColor: '#d9d9d9', width: '360px', flexShrink: 0 }}>
@@ -219,21 +238,30 @@ export default function NewUIPage() {
             onGoldButtonClick={handleClick}
           />
         </div>
-        {/* Center pane — Statistics */}
-        <div className="flex-1 overflow-y-auto" style={{ borderRight: '1px solid #d9d9d9' }}>
-          <StatisticsPanel
-            tokens={tokens}
-            totalEarned={totalEarned}
-            lifetimeRevenue={lifetimeRevenue}
-            usersPerSecond={usersPerSecond}
-            clickPower={clickPower}
-            currentStageIndex={currentStageIndex}
-            userbase={userbase}
-            netIncome={netIncome}
-            unlockedModels={unlockedModels}
-            totalModels={models.length}
-            nextStage={nextStage}
-          />
+        <div className="flex-1 overflow-y-auto">
+          {activeTab === 'upgrades' && (
+            <UpgradesPane
+              reputation={reputation}
+              upgrades={reputationUpgrades}
+              onBuy={buyReputationUpgrade}
+            />
+          )}
+
+          {activeTab === 'stats' && (
+            <StatisticsPanel
+              tokens={tokens}
+              totalEarned={totalEarned}
+              lifetimeRevenue={lifetimeRevenue}
+              usersPerSecond={usersPerSecond}
+              clickPower={clickPower}
+              currentStageIndex={currentStageIndex}
+              userbase={userbase}
+              netIncome={netIncome}
+              unlockedModels={unlockedModels}
+              totalModels={models.length}
+              nextStage={nextStage}
+            />
+          )}
         </div>
         {/* Right pane — still uses GameContext for agent/model shop */}
         <GameProvider>

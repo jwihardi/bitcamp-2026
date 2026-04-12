@@ -10,9 +10,13 @@ function fmtMoney(n: number) {
   return `$${n.toFixed(0)}`
 }
 
+export type HeaderTab = 'stats' | 'upgrades' | 'achievements'
+
 type HeaderViewProps = {
   arr: number
   users: number
+  activeTab?: HeaderTab
+  onTabChange?: (tab: HeaderTab) => void
 }
 
 const COLOR_ACTIVE = '#1fc46a'
@@ -20,7 +24,7 @@ const COLOR_INACTIVE = '#b3b3b3'
 const COLOR_USERS = '#3f81ea'
 const COLOR_BORDER = '#d9d9d9'
 
-export function HeaderView({ arr, users }: HeaderViewProps) {
+export function HeaderView({ arr, users, activeTab = 'stats', onTabChange }: HeaderViewProps) {
   return (
     <header
       className="flex items-center justify-center px-2 py-3 border-b"
@@ -31,18 +35,21 @@ export function HeaderView({ arr, users }: HeaderViewProps) {
         <div className="flex items-center gap-10">
           <HeaderButton
             text="Stats"
-            variant="Active"
-            icon={<BarChart2 size={32} strokeWidth={1.5} color={COLOR_ACTIVE} style={{ flexShrink: 0 }} />}
+            variant={activeTab === 'stats' ? 'Active' : 'Default'}
+            icon={<BarChart2 size={32} strokeWidth={1.5} color={activeTab === 'stats' ? COLOR_ACTIVE : COLOR_INACTIVE} style={{ flexShrink: 0 }} />}
+            onClick={() => onTabChange?.('stats')}
           />
           <HeaderButton
             text="Upgrades"
-            variant="Default"
-            icon={<ChevronsUp size={32} strokeWidth={1.5} color={COLOR_INACTIVE} style={{ flexShrink: 0 }} />}
+            variant={activeTab === 'upgrades' ? 'Active' : 'Default'}
+            icon={<ChevronsUp size={32} strokeWidth={1.5} color={activeTab === 'upgrades' ? COLOR_ACTIVE : COLOR_INACTIVE} style={{ flexShrink: 0 }} />}
+            onClick={() => onTabChange?.('upgrades')}
           />
           <HeaderButton
             text="Achievements"
-            variant="Default"
-            icon={<Star size={32} strokeWidth={1.5} color={COLOR_INACTIVE} style={{ flexShrink: 0 }} />}
+            variant={activeTab === 'achievements' ? 'Active' : 'Default'}
+            icon={<Star size={32} strokeWidth={1.5} color={activeTab === 'achievements' ? COLOR_ACTIVE : COLOR_INACTIVE} style={{ flexShrink: 0 }} />}
+            onClick={() => onTabChange?.('achievements')}
           />
         </div>
 
