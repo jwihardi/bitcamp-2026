@@ -1,16 +1,41 @@
 'use client'
 
-import { useGame } from '../context/GameContext'
+import type { Agent, Model } from '@/app/game-config'
+import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 import { MODELS } from '../lib/constants'
-import { AgentItem } from './AgentItem'
+import { IdleAgentItem } from './IdleAgentItem'
 import { ModelShopItem } from './ModelShopItem'
-import { Text } from './Text'
 
 const ALL_MODELS = Object.values(MODELS)
 
-export function RightPanel() {
-  const { state } = useGame()
-  const { agents } = state
+type RightPanelProps = {
+  agents: Agent[]
+  models: Model[]
+  tokens: number
+  getCost: (agent: Agent) => number
+  getAgentQuality: (agent: Agent) => number
+  getUsersPerSecond: (agent: Agent) => number
+  evaluatingAgentIds: Set<IdleAgentType>
+  onOpenBuy: (id: IdleAgentType) => void
+  onOpenPrompt: (id: IdleAgentType) => void
+  onChangeModel: (agentId: IdleAgentType, modelId: string) => void
+}
+
+export function RightPanel({
+  agents,
+  models,
+  tokens,
+  getCost,
+  getAgentQuality,
+  getUsersPerSecond,
+  evaluatingAgentIds,
+  onOpenBuy,
+  onOpenPrompt,
+  onChangeModel,
+}: RightPanelProps) {
+  const visibleAgents = agents.filter(
+    (a) => tokens >= a.unlockThreshold || a.count > 0,
+  )
 
   return (
     <div
@@ -58,11 +83,26 @@ export function RightPanel() {
           Agents
         </p>
         <div className="flex flex-col gap-3 py-1 w-full">
-          {agents.length === 0 ? (
-            <Text size="sm" style={{ color: '#b3b3b3' }}>No agents hired yet.</Text>
+          {visibleAgents.length === 0 ? (
+            <p className="text-sm" style={{ color: '#b3b3b3' }}>
+              Keep earning tokens — agents unlock as you grow.
+            </p>
           ) : (
-            agents.map((agent) => (
-              <AgentItem key={agent.id} agent={agent} className="w-full" />
+            visibleAgents.map((agent) => (
+              <IdleAgentItem
+                key={agent.id}
+                agent={agent}
+                models={models}
+                tokens={tokens}
+                cost={getCost(agent)}
+                quality={getAgentQuality(agent)}
+                usersPerSecond={getUsersPerSecond(agent)}
+                isEvaluating={evaluatingAgentIds.has(agent.id)}
+                onOpenBuy={onOpenBuy}
+                onOpenPrompt={onOpenPrompt}
+                onChangeModel={onChangeModel}
+                className="w-full"
+              />
             ))
           )}
         </div>

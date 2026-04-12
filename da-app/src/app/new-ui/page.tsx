@@ -1,6 +1,8 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import type { PromptEvaluation } from '@/lib/types'
+import type { IdleAgentType } from '@/app/api/evaluate-idle/route'
 import {
   INITIAL_MODELS,
   INITIAL_AGENTS,
@@ -9,14 +11,36 @@ import {
   REVENUE_PER_USER,
 } from '../game-config'
 import type { Model, Agent, ReputationUpgrade } from '../game-config'
-import { GameProvider } from '@/context/GameContext'
 import { HeaderView, type HeaderTab } from '@/components/Header'
 import { LeftPanel } from '@/components/LeftPanel'
 import { RightPanel } from '@/components/RightPanel'
 import { UpgradesPane } from '@/components/UpgradesPane'
 import { StatisticsPanel } from '@/components/StatisticsPanel'
+import { BuyAgentModal } from '@/components/BuyAgentModal'
+import { PromptEditorModal } from '@/components/PromptEditorModal'
 
-// ---- copied from page.tsx ----
+// ---- helpers ----
+
+async function evaluateIdlePrompt(
+  prompt: string,
+  agentType: IdleAgentType,
+  stageContext: { stage: string; users: number; revenue: number; agentCount: number },
+): Promise<PromptEvaluation> {
+  const response = await fetch('/api/evaluate-idle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, agentType, stageContext }),
+  })
+  if (!response.ok) {
+    let detail = `Evaluation failed: ${response.status}`
+    try {
+      const data = (await response.json()) as { error?: string }
+      if (data.error) detail = data.error
+    } catch { /* keep HTTP status */ }
+    throw new Error(detail)
+  }
+  return (await response.json()) as PromptEvaluation
+}
 
 function getInitialState(upgrades: ReputationUpgrade[]) {
   const has = (effect: string) => upgrades.some((u) => u.effect === effect && u.purchased)
@@ -39,12 +63,16 @@ export default function NewUIPage() {
   const [reputationUpgrades, setReputationUpgrades] = useState<ReputationUpgrade[]>(INITIAL_REPUTATION_UPGRADES)
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
   const [userbase, setUserbase] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).userbase)
-  const [agents] = useState<Agent[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).agents)
-  const [models] = useState<Model[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).models)
+  const [agents, setAgents] = useState<Agent[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).agents)
+  const [models, setModels] = useState<Model[]>(() => getInitialState(INITIAL_REPUTATION_UPGRADES).models)
   const [clickPower, setClickPower] = useState(1)
   const [totalEarned, setTotalEarned] = useState(0)
   const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
+  // Modal state
+  const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
+  const [buyingAgentId, setBuyingAgentId] = useState<IdleAgentType | null>(null)
+  const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
 
   const gameSpeed: number = 1
 
@@ -61,7 +89,7 @@ export default function NewUIPage() {
     )
   }
 
-  // ---- reputation bonuses (copied from page.tsx) ----
+  // ---- reputation bonuses ----
 
   const getReputationBonus = useCallback((effect: string): number => {
     if (!reputationUpgrades.some((u) => u.effect === effect && u.purchased)) return 0
@@ -74,7 +102,10 @@ export default function NewUIPage() {
     }
   }, [reputationUpgrades])
 
-  // ---- derived (copied from page.tsx) ----
+  // ---- derived ----
+
+  const getCost = (agent: Agent): number =>
+    Math.floor(agent.baseCost * Math.pow(agent.multiplier, agent.count))
 
   const getUsersPerSecond = useCallback((agent: Agent): number => {
     const model = models.find((m) => m.id === agent.selectedModel)
@@ -111,6 +142,15 @@ export default function NewUIPage() {
     [agents, getOperatingCost],
   )
 
+  const getAgentQuality = useCallback((agent: Agent): number => {
+    if (agent.count === 0) return 0
+    const model = models.find((m) => m.id === agent.selectedModel)
+    const modelQuality = model ? model.qualityMultiplier : 1
+    const promptScore = agent.promptQuality * 0.7
+    const modelScore = ((modelQuality - 1) / 1.2) * 30
+    return Math.min(100, promptScore + modelScore)
+  }, [models])
+
   const getUserChurnRate = (quality: number): number => {
     if (quality >= 75) return 0
     if (quality >= 65) return 0.005
@@ -136,7 +176,7 @@ export default function NewUIPage() {
     return Math.max(0, Math.min(100, weighted / totalWeight))
   }, [agents, models, getUsersPerSecond])
 
-  // ---- click handler (copied from page.tsx) ----
+  // ---- click handler ----
 
   const handleClick = useCallback(() => {
     const multiplier = getReputationBonus('clickMultiplier') || 1
@@ -144,11 +184,67 @@ export default function NewUIPage() {
     setUserbase((u) => u + gained)
   }, [clickPower, getReputationBonus])
 
-  // ---- game loops (copied from page.tsx) ----
+  // ---- agent actions ----
+
+  const buyAgent = (agentId: IdleAgentType) => {
+    setAgents((prev) => {
+      const agent = prev.find((a) => a.id === agentId)
+      if (!agent) return prev
+      const cost = getCost(agent)
+      if (tokens < cost) return prev
+      setTokens((t) => t - cost)
+      return prev.map((a) => (a.id === agentId ? { ...a, count: a.count + 1 } : a))
+    })
+  }
+
+  const changeAgentModel = (agentId: IdleAgentType, modelId: string) => {
+    setAgents((prev) =>
+      prev.map((a) => (a.id === agentId ? { ...a, selectedModel: modelId } : a)),
+    )
+  }
+
+  const applyEvaluation = (agentId: IdleAgentType, prompt: string, evaluation: PromptEvaluation) => {
+    setAgents((prev) =>
+      prev.map((a) =>
+        a.id === agentId
+          ? { ...a, promptQuality: evaluation.score, lastEvaluation: evaluation, lastPrompt: prompt }
+          : a,
+      ),
+    )
+  }
+
+  const handleAnalyze = (agentId: IdleAgentType, prompt: string) => {
+    setEvaluatingAgentIds((prev) => new Set(prev).add(agentId))
+    const stageContext = {
+      stage: FUNDING_STAGES[currentStageIndex].name,
+      users: Math.floor(userbase),
+      revenue: Math.floor(totalEarned),
+      agentCount: agents.reduce((s, a) => s + a.count, 0),
+    }
+    void evaluateIdlePrompt(prompt, agentId, stageContext)
+      .then((evaluation) => {
+        applyEvaluation(agentId, prompt, evaluation)
+        setEvaluatingAgentIds((prev) => {
+          const next = new Set(prev)
+          next.delete(agentId)
+          return next
+        })
+      })
+      .catch((e) => {
+        console.error('[handleAnalyze] evaluation failed', e instanceof Error ? e.message : e)
+        setEvaluatingAgentIds((prev) => {
+          const next = new Set(prev)
+          next.delete(agentId)
+          return next
+        })
+      })
+  }
+
+  // ---- game loops ----
 
   // User generation loop
   useEffect(() => {
-    if (gameSpeed === 0) return
+    // gameSpeed is always 1 in new-ui; guard kept for future extensibility
     const usersPerSecond = getTotalUsersPerSecond()
     const quality = calculateServiceQuality()
     const churnRate = getUserChurnRate(quality)
@@ -164,7 +260,6 @@ export default function NewUIPage() {
 
   // Revenue loop
   useEffect(() => {
-    if (gameSpeed === 0) return
     const revenue = getRevenueFromUsers()
     const costs = getTotalOperatingCost()
     const netIncome = revenue - costs
@@ -211,7 +306,7 @@ export default function NewUIPage() {
     advanceStage()
   }, [userbase, totalEarned, currentStageIndex, advanceStage])
 
-  // ---- MoneyPile props ----
+  // ---- derived display values ----
 
   const nextStage = FUNDING_STAGES[currentStageIndex + 1] ?? null
   const percentage = (currentStageIndex / (FUNDING_STAGES.length - 1)) * 100
@@ -225,6 +320,11 @@ export default function NewUIPage() {
     return firstHired ? `${firstHired.name} & Co.` : 'Your Company'
   })()
 
+  // ---- modal derived ----
+
+  const editingAgent = editingAgentId ? agents.find((a) => a.id === editingAgentId) ?? null : null
+  const buyingAgent = buyingAgentId ? agents.find((a) => a.id === buyingAgentId) ?? null : null
+
   return (
     <div className="flex flex-col h-screen" style={{ background: 'white' }}>
       <HeaderView
@@ -234,7 +334,7 @@ export default function NewUIPage() {
         onTabChange={setActiveTab}
       />
       <div className="flex flex-1 overflow-hidden">
-        {/* Left pane — MoneyPile wired to page.tsx game mechanics */}
+        {/* Left pane */}
         <div className="border-r" style={{ borderColor: '#d9d9d9', width: '360px', flexShrink: 0 }}>
           <LeftPanel
             percentage={percentage}
@@ -244,6 +344,8 @@ export default function NewUIPage() {
             onGoldButtonClick={handleClick}
           />
         </div>
+
+        {/* Center pane */}
         <div className="flex-1 overflow-y-auto">
           {activeTab === 'upgrades' && (
             <UpgradesPane
@@ -252,7 +354,6 @@ export default function NewUIPage() {
               onBuy={buyReputationUpgrade}
             />
           )}
-
           {activeTab === 'stats' && (
             <StatisticsPanel
               tokens={tokens}
@@ -269,11 +370,47 @@ export default function NewUIPage() {
             />
           )}
         </div>
-        {/* Right pane — still uses GameContext for agent/model shop */}
-        <GameProvider>
-          <RightPanel />
-        </GameProvider>
+
+        {/* Right pane — wired to new-ui state */}
+        <RightPanel
+          agents={agents}
+          models={models}
+          tokens={tokens}
+          getCost={getCost}
+          getAgentQuality={getAgentQuality}
+          getUsersPerSecond={getUsersPerSecond}
+          evaluatingAgentIds={evaluatingAgentIds}
+          onOpenBuy={setBuyingAgentId}
+          onOpenPrompt={setEditingAgentId}
+          onChangeModel={changeAgentModel}
+        />
       </div>
+
+      {/* Modals */}
+      {buyingAgent && (
+        <BuyAgentModal
+          agent={buyingAgent}
+          cost={getCost(buyingAgent)}
+          canAfford={tokens >= getCost(buyingAgent)}
+          onConfirm={() => {
+            buyAgent(buyingAgent.id)
+            setBuyingAgentId(null)
+          }}
+          onClose={() => setBuyingAgentId(null)}
+        />
+      )}
+
+      {editingAgent && (
+        <PromptEditorModal
+          agent={editingAgent}
+          isEvaluating={evaluatingAgentIds.has(editingAgent.id)}
+          onClose={() => setEditingAgentId(null)}
+          onAnalyze={(prompt) => {
+            handleAnalyze(editingAgent.id, prompt)
+            setEditingAgentId(null)
+          }}
+        />
+      )}
     </div>
   )
 }
