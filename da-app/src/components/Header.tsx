@@ -24,7 +24,12 @@ const COLOR_INACTIVE = '#b3b3b3'
 const COLOR_USERS = '#3f81ea'
 const COLOR_BORDER = '#d9d9d9'
 
-export function HeaderView({ arr, users, activeTab = 'stats', onTabChange }: HeaderViewProps) {
+export function HeaderView({
+  arr,
+  users,
+  activeTab = 'stats',
+  onTabChange,
+}: HeaderViewProps) {
   return (
     <header
       className="flex items-center justify-center px-2 py-3 border-b"

@@ -73,7 +73,7 @@ export function MoneyPile({
       {/* Foreground: badge + label + coin */}
       <div className="relative flex flex-col items-center gap-2 pt-8 px-4" style={{ zIndex: 2 }}>
         {/* Company name badge */}
-        <div className="bg-black/20 rounded-lg px-16 py-[2px]">
+        <div className="rounded-lg px-16 py-[2px]" style={{ background: 'rgba(255,255,255,0.38)' }}>
           {onCompanyNameChange ? (
             <input
               type="text"
@@ -86,12 +86,12 @@ export function MoneyPile({
               }}
               maxLength={32}
               placeholder="Your Company"
-              className="min-w-[220px] w-full bg-transparent border-none outline-none text-center text-black/35 placeholder:text-black/25 text-2xl font-semibold leading-tight caret-black/40"
+              className="min-w-[220px] w-full bg-transparent border-none outline-none text-center text-black/60 placeholder:text-black/40 text-2xl font-semibold leading-tight caret-black/60"
               style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
             />
           ) : (
             <p
-              className="text-black/35 text-2xl font-semibold leading-tight whitespace-nowrap"
+              className="text-black/60 text-2xl font-semibold leading-tight whitespace-nowrap"
               style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
             >
               {companyName}

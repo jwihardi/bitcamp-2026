@@ -19,7 +19,17 @@ import { StatisticsPanel } from '@/components/StatisticsPanel'
 import { AgentEditorModal } from '@/components/AgentEditorModal'
 import { CTOPanel, type CtoReport } from '@/components/CTOPanel'
 
+<<<<<<< HEAD
 type HistoryPoint = { time: number; value: number }
+=======
+type UiTip = {
+  id: string
+  title: string
+  body: string
+}
+
+const UI_TIP_DURATION_MS = 5000
+>>>>>>> 6ad4104 (notifs)
 
 // ---- helpers ----
 
@@ -61,6 +71,7 @@ function getInitialState(upgrades: ReputationUpgrade[]) {
 }
 
 export default function NewUIPage() {
+  const [mounted, setMounted] = useState(false)
   const [activeTab, setActiveTab] = useState<HeaderTab>('stats')
   const [reputationUpgrades, setReputationUpgrades] = useState<ReputationUpgrade[]>(INITIAL_REPUTATION_UPGRADES)
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
@@ -92,6 +103,8 @@ export default function NewUIPage() {
   const [ctoError, setCtoError] = useState<string | null>(null)
   const [ctoCollapsed, setCtoCollapsed] = useState(false)
   const [ctoFresh, setCtoFresh] = useState(false)
+  const [activeTip, setActiveTip] = useState<UiTip | null>(null)
+  const [queuedTips, setQueuedTips] = useState<UiTip[]>([])
 
   // CTO refs (debounce / anti-stale-closure)
   const ctoLoadingRef = useRef(false)
@@ -102,10 +115,22 @@ export default function NewUIPage() {
   const levelUpAudioRef = useRef<HTMLAudioElement | null>(null)
   const userLevelUpAudioRef = useRef<HTMLAudioElement | null>(null)
   const prevUserMilestoneIndexRef = useRef(0)
+<<<<<<< HEAD
   const lifetimeProfitRef = useRef(0)
   const lifetimeCostRef = useRef(0)
+=======
+  const firedTipIdsRef = useRef(new Set<string>())
+  const activeTipRef = useRef<UiTip | null>(null)
+  const prevUnlockedAgentIdsRef = useRef(unlockedAgentIds)
+  const prevUnlockedModelIdsRef = useRef(new Set(models.filter((model) => model.unlocked).map((model) => model.id)))
+  const prevAgentCountsRef = useRef(new Map(agents.map((agent) => [agent.id, agent.count])))
+>>>>>>> 6ad4104 (notifs)
 
   const gameSpeed: number = 1
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const roundAudio = new Audio('/levelup.mp3')
@@ -275,6 +300,16 @@ export default function NewUIPage() {
     if (isFirstBuy) setEditingAgentId(agentId)
   }
 
+  const enqueueTip = useCallback((tip: UiTip) => {
+    if (firedTipIdsRef.current.has(tip.id)) return
+    firedTipIdsRef.current.add(tip.id)
+    setQueuedTips((current) => {
+      if (activeTipRef.current?.id === tip.id) return current
+      if (current.some((queued) => queued.id === tip.id)) return current
+      return [...current, tip]
+    })
+  }, [])
+
   const unlockModel = (modelId: string) => {
     const model = models.find((m) => m.id === modelId)
     if (!model || model.unlocked || tokens < model.unlockCost) return
@@ -397,12 +432,20 @@ export default function NewUIPage() {
   // Trigger on stage advance
   useEffect(() => {
     if (currentStageIndex > prevStageIndexRef.current) {
+      const stage = FUNDING_STAGES[currentStageIndex]
+      if (stage) {
+        enqueueTip({
+          id: `stage-${stage.id}`,
+          title: `${stage.name} reached`,
+          body: 'Your company leveled up. New growth goals are live.',
+        })
+      }
       prevStageIndexRef.current = currentStageIndex
       scheduleAutoConsult()
     } else {
       prevStageIndexRef.current = currentStageIndex
     }
-  }, [currentStageIndex, scheduleAutoConsult])
+  }, [currentStageIndex, scheduleAutoConsult, enqueueTip])
 
   // Trigger on first purchase of a new agent type
   useEffect(() => {
@@ -410,11 +453,16 @@ export default function NewUIPage() {
     for (const agent of agents) {
       if (agent.count > 0 && !purchasedAgentTypesRef.current.has(agent.id)) {
         purchasedAgentTypesRef.current.add(agent.id)
+        enqueueTip({
+          id: `bought-${agent.id}`,
+          title: `${agent.name} hired`,
+          body: 'Open the agent editor to write a prompt and improve output.',
+        })
         triggered = true
       }
     }
     if (triggered) scheduleAutoConsult()
-  }, [agents, scheduleAutoConsult])
+  }, [agents, scheduleAutoConsult, enqueueTip])
 
   // ---- game loops ----
 
@@ -474,6 +522,57 @@ export default function NewUIPage() {
       return changed ? next : prev
     })
   }, [tokens, agents])
+
+  useEffect(() => {
+    const previous = prevUnlockedAgentIdsRef.current
+    const newlyUnlocked = [...unlockedAgentIds].filter((id) => !previous.has(id))
+    prevUnlockedAgentIdsRef.current = unlockedAgentIds
+
+    newlyUnlocked.forEach((id) => {
+      const agent = agents.find((entry) => entry.id === id)
+      if (!agent || agent.unlockThreshold === 0) return
+      enqueueTip({
+        id: `unlock-agent-${agent.id}`,
+        title: `${agent.name} unlocked`,
+        body: 'A new agent is available in the right sidebar shop.',
+      })
+    })
+  }, [unlockedAgentIds, agents, enqueueTip])
+
+  useEffect(() => {
+    const previous = prevUnlockedModelIdsRef.current
+    const next = new Set(models.filter((model) => model.unlocked).map((model) => model.id))
+    const newlyUnlocked = [...next].filter((id) => !previous.has(id))
+    prevUnlockedModelIdsRef.current = next
+
+    newlyUnlocked.forEach((id) => {
+      if (id === 'nimbus_1') return
+      const model = models.find((entry) => entry.id === id)
+      if (!model) return
+      enqueueTip({
+        id: `unlock-model-${model.id}`,
+        title: `${model.name} unlocked`,
+        body: 'Switch models in the agent editor to trade more cost for more quality.',
+      })
+    })
+  }, [models, enqueueTip])
+
+  useEffect(() => {
+    const previous = prevAgentCountsRef.current
+    const next = new Map(agents.map((agent) => [agent.id, agent.count]))
+    prevAgentCountsRef.current = next
+
+    agents.forEach((agent) => {
+      const previousCount = previous.get(agent.id) ?? 0
+      if (previousCount === 0 && agent.count > 0) {
+        enqueueTip({
+          id: `first-agent-open-${agent.id}`,
+          title: 'Prompt your agents',
+          body: 'Right-click an agent row to reopen its editor and refine the prompt later.',
+        })
+      }
+    })
+  }, [agents, enqueueTip])
 
   // Stage advance
   const advanceStage = useCallback(() => {
@@ -538,8 +637,44 @@ export default function NewUIPage() {
 
   const editingAgent = editingAgentId ? agents.find((a) => a.id === editingAgentId) ?? null : null
 
+  useEffect(() => {
+    activeTipRef.current = activeTip
+  }, [activeTip])
+
+  useEffect(() => {
+    if (activeTip || queuedTips.length === 0) return
+    setActiveTip(queuedTips[0])
+    setQueuedTips((current) => current.slice(1))
+  }, [activeTip, queuedTips])
+
+  useEffect(() => {
+    if (!activeTip) return
+    const id = window.setTimeout(() => {
+      setActiveTip(null)
+    }, UI_TIP_DURATION_MS)
+    return () => window.clearTimeout(id)
+  }, [activeTip])
+
+  if (!mounted) return null
+
   return (
     <div className="flex flex-col h-screen" style={{ background: 'white' }}>
+      {activeTip && (
+        <aside
+          className="pointer-events-none fixed z-[70] w-[420px] max-w-[calc(100vw-2rem)] rounded-2xl border border-black/10 bg-white px-5 py-2.5 text-left shadow-lg"
+          style={{
+            top: 16,
+            right: 16,
+          }}
+        >
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: '#1fc46a' }}>
+            Tip
+          </p>
+          <h3 className="mt-1 text-sm font-semibold text-stone-950">{activeTip.title}</h3>
+          <p className="mt-1 text-[13px] leading-5 text-stone-700">{activeTip.body}</p>
+        </aside>
+      )}
+
       <HeaderView
         arr={tokens}
         users={Math.floor(userbase)}

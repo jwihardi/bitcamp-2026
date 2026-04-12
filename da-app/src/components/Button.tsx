@@ -40,11 +40,12 @@ export function Button({
   size = 'Medium',
   iconStart,
   iconEnd,
-  disabled,
+  disabled = false,
   className,
   style,
   ...rest
 }: ButtonProps) {
+  const isDisabled = Boolean(disabled)
   const pad = size === 'Medium' ? '12px' : '8px'
 
   // Compute base (non-hover) background, shadow, and text color
@@ -52,7 +53,7 @@ export function Button({
   let shadow: string | undefined
   let textColor: string
 
-  if (disabled) {
+  if (isDisabled) {
     bg        = variant === 'Subtle' ? undefined : BG.disabled
     shadow    = variant === 'Subtle' ? undefined : SHADOW.disabled
     textColor = TEXT_COLOR.disabled
@@ -74,7 +75,7 @@ export function Button({
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={isDisabled}
       className={[
         // layout
         'inline-flex items-center justify-center gap-2',
@@ -86,21 +87,21 @@ export function Button({
         'font-[family-name:var(--sds-typography-body-font-family,"Nunito",sans-serif)]',
         'text-[length:var(--sds-typography-body-size-medium,16px)]',
         // interaction
-        !disabled && 'cursor-pointer',
-        disabled  && 'cursor-not-allowed',
+        !isDisabled && 'cursor-pointer',
+        isDisabled  && 'cursor-not-allowed',
         // Subtle hover: add border
-        !disabled && variant === 'Subtle' && [
+        !isDisabled && variant === 'Subtle' && [
           'hover:border hover:border-[var(--sds-color-border-default-default,#d9d9d9)]',
           'border border-transparent', // reserve border space so layout doesn't shift
         ],
         // Primary hover: darker bg + darker shadow
-        !disabled && variant === 'Primary' && [
+        !isDisabled && variant === 'Primary' && [
           `hover:bg-[var(--sds-color-background-brand-hover,#00a657)]`,
           `hover:shadow-[0px_4px_0px_0px_var(--sds-color-background-positive-hover,#008043)]`,
           `active:translate-y-[3px] active:shadow-none`,
         ],
         // Neutral hover: darker bg + darker shadow
-        !disabled && variant === 'Neutral' && [
+        !isDisabled && variant === 'Neutral' && [
           `hover:bg-[var(--sds-color-background-neutral-secondary,#cdcdcd)]`,
           `hover:shadow-[0px_4px_0px_0px_var(--sds-color-background-neutral-secondary-hover,#b2b2b2)]`,
           `active:translate-y-[3px] active:shadow-none`,
