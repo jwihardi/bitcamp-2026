@@ -90,6 +90,19 @@ type CfoReport = {
 export default function IdleGamePage() {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+  const levelUpAudioRef = useRef<HTMLAudioElement | null>(null)
+
+  useEffect(() => {
+    const audio = new Audio('/levelup.mp3')
+    audio.preload = 'auto'
+    levelUpAudioRef.current = audio
+
+    return () => {
+      audio.pause()
+      audio.src = ''
+      levelUpAudioRef.current = null
+    }
+  }, [])
 
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
   const [userbase, setUserbase] = useState(
@@ -561,6 +574,10 @@ export default function IdleGamePage() {
       totalEarned >= next.revenueRequirement &&
       currentProfit >= next.profitRequirement
     ) {
+      if (levelUpAudioRef.current) {
+        levelUpAudioRef.current.currentTime = 0
+        void levelUpAudioRef.current.play().catch(() => {})
+      }
       setCurrentStageIndex((i) => i + 1)
       setReputation((r) => r + next.reputationGain)
     }

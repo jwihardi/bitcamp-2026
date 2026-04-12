@@ -18,6 +18,7 @@ const PARTICLE_COUNT = 8
 const PLAYLIST = ['/mozart1.mp3', '/mozart2.mp3', '/mozart3.mp3'] as const
 const PLAYLIST_VOLUME = 0.245
 const COIN_SOUND = '/coin.mp3'
+const COIN_VOLUME = 0.75
 
 // Figma design constants (256px outer diameter)
 // Stroke ring: 24px total → 12px inset per side
@@ -70,6 +71,7 @@ export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) 
     audio.volume = PLAYLIST_VOLUME
     baseCoinAudioRef.current = new Audio(COIN_SOUND)
     baseCoinAudioRef.current.preload = 'auto'
+    baseCoinAudioRef.current.volume = COIN_VOLUME
 
     const handleEnded = () => {
       playlistIndexRef.current = (playlistIndexRef.current + 1) % PLAYLIST.length
@@ -131,6 +133,7 @@ export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) 
 
     const coinSound = baseCoinAudioRef.current?.cloneNode() as HTMLAudioElement | undefined
     if (coinSound) {
+      coinSound.volume = COIN_VOLUME
       activeCoinSoundsRef.current.add(coinSound)
       coinSound.currentTime = 0
       void coinSound.play().catch(() => {
@@ -169,6 +172,7 @@ export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) 
   return (
     <motion.button
       type="button"
+      data-skip-ui-click-sound="true"
       onClick={handleClick}
       whileHover={{ scale: 1.08 }}
       whileTap={{ scale: 0.96 }}

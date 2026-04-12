@@ -93,8 +93,21 @@ export default function NewUIPage() {
   const lastAutoConsultTimeRef = useRef<number>(0)
   const purchasedAgentTypesRef = useRef(new Set<string>())
   const prevStageIndexRef = useRef(0)
+  const levelUpAudioRef = useRef<HTMLAudioElement | null>(null)
 
   const gameSpeed: number = 1
+
+  useEffect(() => {
+    const audio = new Audio('/levelup.mp3')
+    audio.preload = 'auto'
+    levelUpAudioRef.current = audio
+
+    return () => {
+      audio.pause()
+      audio.src = ''
+      levelUpAudioRef.current = null
+    }
+  }, [])
 
   // ---- reputation upgrade purchase ----
 
@@ -419,6 +432,10 @@ export default function NewUIPage() {
       totalEarned >= next.revenueRequirement &&
       netIncome >= next.profitRequirement
     ) {
+      if (levelUpAudioRef.current) {
+        levelUpAudioRef.current.currentTime = 0
+        void levelUpAudioRef.current.play().catch(() => {})
+      }
       setCurrentStageIndex((i) => i + 1)
     }
   }, [

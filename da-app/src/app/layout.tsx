@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { GlobalClickAudio } from '@/components/GlobalClickAudio'
 
 export const metadata: Metadata = {
   title: 'AI Agent Empire',
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
+        <GlobalClickAudio />
         {children}
       </body>
     </html>
