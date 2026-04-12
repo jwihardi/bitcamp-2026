@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { GoldButton } from './GoldButton'
 
 type MoneyPileProps = {
@@ -33,6 +34,7 @@ export function MoneyPile({
   onGoldButtonClick,
 }: MoneyPileProps) {
   const pct = Math.min(100, Math.max(0, percentage))
+  const [editableName, setEditableName] = useState(companyName ?? 'Your Company')
 
   return (
     <div
@@ -62,7 +64,7 @@ export function MoneyPile({
         style={{
           background:
             'radial-gradient(ellipse at 50% 32%, #fff 0%, #dfdfdf 15%, #bfbfbf 28%, #808080 50%, #282828 75%, #000 100%)',
-          opacity: 0.5,
+          opacity: 0.25,
           mixBlendMode: 'multiply',
           zIndex: 1,
         }}

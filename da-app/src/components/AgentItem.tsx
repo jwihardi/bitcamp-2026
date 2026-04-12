@@ -1,4 +1,4 @@
-import type { Agent, AgentIcon } from '@/lib/types'
+import type { Agent as LibAgent, AgentIcon } from '@/lib/types'
 import { MODELS, BASE_OUTPUT } from '@/lib/constants'
 import { Text } from './Text'
 
@@ -15,24 +15,77 @@ function getOutputMultiplier(q: number): number {
   return 0.2 + (q / 100) * 1.8
 }
 
-type AgentItemProps = {
-  agent: Agent
-  className?: string
+type AgentItemDisplay = {
+  emoji: string
+  name: string
+  sublabel: string
+  /** Shown as the large translucent serif number on the right */
+  count: number
 }
 
-export function AgentItem({ agent, className }: AgentItemProps) {
+function fromLibAgent(agent: LibAgent): AgentItemDisplay {
   const model = MODELS[agent.modelId]
   const baseArr = BASE_OUTPUT[agent.role].arr ?? 500
   const estimatedRevenue = Math.round(baseArr * getOutputMultiplier(agent.qualityScore))
+  return {
+    emoji:    AGENT_ICONS[agent.icon],
+    name:     agent.name,
+    sublabel: `$${estimatedRevenue.toLocaleString()} · ${model.name}`,
+    count:    agent.qualityScore,
+  }
+}
+
+type AgentItemProps =
+  | {
+      agent: LibAgent
+      emoji?: never; name?: never; sublabel?: never; count?: never
+      canAfford?: never; onClick?: never; onDoubleClick?: never
+      className?: string
+    }
+  | {
+      agent?: never
+      emoji: string
+      name: string
+      sublabel?: string
+      /** Total agents purchased — shown as large serif number */
+      count?: number
+      canAfford?: boolean
+      /** Single click — buy one agent */
+      onClick?: () => void
+      /** Double click — open agent editor */
+      onDoubleClick?: () => void
+      className?: string
+    }
+
+export function AgentItem(props: AgentItemProps) {
+  const { className } = props
+
+  const display: AgentItemDisplay = props.agent
+    ? fromLibAgent(props.agent)
+    : {
+        emoji:    props.emoji,
+        name:     props.name ?? '',
+        sublabel: props.sublabel ?? '',
+        count:    props.count ?? 0,
+      }
+
+  const canAfford    = props.agent ? undefined : (props.canAfford ?? false)
+  const handleClick  = props.agent ? undefined : props.onClick
+  const handleDbl    = props.agent ? undefined : props.onDoubleClick
 
   return (
     <div
-      className={`relative flex h-[72px] items-center justify-between overflow-hidden rounded-[8px] pl-16 pr-2 ${className ?? ''}`}
+      className={`relative flex h-[72px] items-center justify-between overflow-hidden rounded-[8px] pl-20 pr-2 ${className ?? ''}`}
       style={{
         background: 'white',
         border: '1px solid var(--sds-color-border-default-default, #d9d9d9)',
         boxShadow: '0px 2px 0px 0px var(--sds-color-border-default-default, #d9d9d9)',
+        cursor: handleClick ? (canAfford ? 'pointer' : 'not-allowed') : undefined,
+        opacity: canAfford === false ? 0.55 : 1,
+        userSelect: 'none',
       }}
+      onClick={canAfford ? handleClick : undefined}
+      onDoubleClick={handleDbl}
     >
       {/* Agent icon — overflows left edge */}
       <div
@@ -40,7 +93,7 @@ export function AgentItem({ agent, className }: AgentItemProps) {
         style={{ left: -30, top: -24 }}
         aria-hidden
       >
-        {AGENT_ICONS[agent.icon]}
+        {display.emoji}
       </div>
 
       {/* Main content */}
@@ -55,19 +108,23 @@ export function AgentItem({ agent, className }: AgentItemProps) {
             color: '#1e1e1e',
           }}
         >
-          {agent.name}
+          {display.name}
         </p>
-        <div className="flex items-center gap-2">
-          <Text size="sm" weight="bold" style={{ color: 'var(--sds-color-text-brand-tertiary, #1fc46a)' }}>
-            ${estimatedRevenue.toLocaleString()}
-          </Text>
-          <Text size="sm" weight="normal" style={{ color: 'var(--sds-color-text-default-tertiary, #b3b3b3)' }}>
-            {model.name}
-          </Text>
-        </div>
+        {display.sublabel ? (
+          <div className="flex items-center gap-2">
+            <Text size="sm" weight="bold" style={{ color: 'var(--sds-color-text-brand-tertiary, #1fc46a)' }}>
+              {display.sublabel.split(' · ')[0]}
+            </Text>
+            {display.sublabel.includes(' · ') && (
+              <Text size="sm" weight="normal" style={{ color: 'var(--sds-color-text-default-tertiary, #b3b3b3)' }}>
+                {display.sublabel.split(' · ')[1]}
+              </Text>
+            )}
+          </div>
+        ) : null}
       </div>
 
-      {/* Quality score */}
+      {/* Count — large translucent serif watermark */}
       <p
         className="shrink-0 leading-tight whitespace-nowrap"
         style={{
@@ -78,7 +135,7 @@ export function AgentItem({ agent, className }: AgentItemProps) {
           color: 'rgba(179, 179, 179, 0.35)',
         }}
       >
-        {agent.qualityScore}
+        {display.count}
       </p>
     </div>
   )

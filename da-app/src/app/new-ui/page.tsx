@@ -16,8 +16,7 @@ import { LeftPanel } from '@/components/LeftPanel'
 import { RightPanel } from '@/components/RightPanel'
 import { UpgradesPane } from '@/components/UpgradesPane'
 import { StatisticsPanel } from '@/components/StatisticsPanel'
-import { BuyAgentModal } from '@/components/BuyAgentModal'
-import { PromptEditorModal } from '@/components/PromptEditorModal'
+import { AgentEditorModal } from '@/components/AgentEditorModal'
 import { CTOPanel, type CtoReport } from '@/components/CTOPanel'
 
 // ---- helpers ----
@@ -73,7 +72,6 @@ export default function NewUIPage() {
   const [currentStageIndex, setCurrentStageIndex] = useState(0)
   // Modal state
   const [editingAgentId, setEditingAgentId] = useState<IdleAgentType | null>(null)
-  const [buyingAgentId, setBuyingAgentId] = useState<IdleAgentType | null>(null)
   const [evaluatingAgentIds, setEvaluatingAgentIds] = useState<Set<IdleAgentType>>(new Set())
 
   // Permanently unlocked agents — once tokens ever reach an agent's unlockThreshold,
@@ -208,7 +206,7 @@ export default function NewUIPage() {
 
   // ---- agent actions ----
 
-  const buyAgent = (agentId: IdleAgentType) => {
+  const buyAgent = (agentId: IdleAgentType, isFirstBuy: boolean) => {
     setAgents((prev) => {
       const agent = prev.find((a) => a.id === agentId)
       if (!agent) return prev
@@ -217,6 +215,7 @@ export default function NewUIPage() {
       setTokens((t) => t - cost)
       return prev.map((a) => (a.id === agentId ? { ...a, count: a.count + 1 } : a))
     })
+    if (isFirstBuy) setEditingAgentId(agentId)
   }
 
   const changeAgentModel = (agentId: IdleAgentType, modelId: string) => {
@@ -446,7 +445,6 @@ export default function NewUIPage() {
   // ---- modal derived ----
 
   const editingAgent = editingAgentId ? agents.find((a) => a.id === editingAgentId) ?? null : null
-  const buyingAgent = buyingAgentId ? agents.find((a) => a.id === buyingAgentId) ?? null : null
 
   return (
     <div className="flex flex-col h-screen" style={{ background: 'white' }}>
@@ -495,45 +493,31 @@ export default function NewUIPage() {
           )}
         </div>
 
-        {/* Right pane — wired to new-ui state */}
+        {/* Right pane */}
         <RightPanel
           agents={agents}
           models={models}
           tokens={tokens}
           unlockedAgentIds={unlockedAgentIds}
           getCost={getCost}
-          getAgentQuality={getAgentQuality}
           getUsersPerSecond={getUsersPerSecond}
-          evaluatingAgentIds={evaluatingAgentIds}
-          onOpenBuy={setBuyingAgentId}
-          onOpenPrompt={setEditingAgentId}
-          onChangeModel={changeAgentModel}
+          onBuy={(id, isFirstBuy) => buyAgent(id, isFirstBuy)}
+          onOpenEditor={setEditingAgentId}
         />
       </div>
 
       {/* Modals */}
-      {buyingAgent && (
-        <BuyAgentModal
-          agent={buyingAgent}
-          cost={getCost(buyingAgent)}
-          canAfford={tokens >= getCost(buyingAgent)}
-          onConfirm={() => {
-            buyAgent(buyingAgent.id)
-            setBuyingAgentId(null)
-          }}
-          onClose={() => setBuyingAgentId(null)}
-        />
-      )}
-
       {editingAgent && (
-        <PromptEditorModal
+        <AgentEditorModal
           agent={editingAgent}
+          models={models}
           isEvaluating={evaluatingAgentIds.has(editingAgent.id)}
           onClose={() => setEditingAgentId(null)}
           onAnalyze={(prompt) => {
             handleAnalyze(editingAgent.id, prompt)
             setEditingAgentId(null)
           }}
+          onChangeModel={(modelId) => changeAgentModel(editingAgent.id, modelId)}
         />
       )}
 

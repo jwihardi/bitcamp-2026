@@ -11,17 +11,17 @@ type Props = {
 
 export function FundingProgress({ stage }: Props) {
   return (
-    <div className="flex items-start">
+    <div className="flex items-start w-full">
       {STAGES.map((label, i) => (
         <Fragment key={label}>
-          <div className="flex flex-col items-center gap-2 shrink-0">
+          <div className="flex flex-col items-center gap-2 shrink-0" style={{ width: 36 }}>
             <ProgressStep variant={i <= stage ? 'default' : 'unmet'} />
             <span className="text-sm leading-[1.4] text-black whitespace-nowrap font-normal font-sans">
               {label}
             </span>
           </div>
           {i < STAGES.length - 1 && (
-            <div className="flex-1 flex flex-col items-start pt-3 min-w-12">
+            <div className="flex-1 flex flex-col pt-[12px]">
               <ProgressStem
                 className="pointer-events-none w-full"
                 variant={i + 1 <= stage ? 'default' : 'unmet'}
