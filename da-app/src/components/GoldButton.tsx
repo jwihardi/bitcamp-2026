@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 
 interface GoldButtonProps {
@@ -55,12 +55,46 @@ function SparkleParticle({ angle, id }: { angle: number; id: number }) {
 export function GoldButton({ onClick, size = 160, className }: GoldButtonProps) {
   const [particles, setParticles] = useState<Particle[]>([])
   const [nextId, setNextId] = useState(0)
+  const baseAudioRef = useRef<HTMLAudioElement | null>(null)
+  const activeSoundsRef = useRef<Set<HTMLAudioElement>>(new Set())
+
+  useEffect(() => {
+    const audio = new Audio('/coin.mp3')
+    audio.preload = 'auto'
+    baseAudioRef.current = audio
+
+    return () => {
+      activeSoundsRef.current.forEach((sound) => {
+        sound.pause()
+        sound.src = ''
+      })
+      activeSoundsRef.current.clear()
+      baseAudioRef.current = null
+    }
+  }, [])
 
   const handleClick = useCallback(() => {
     const newParticles: Particle[] = Array.from({ length: PARTICLE_COUNT }, (_, i) => ({
       id: nextId + i,
       angle: (i / PARTICLE_COUNT) * Math.PI * 2 - Math.PI / 2,
     }))
+
+    const sound = baseAudioRef.current?.cloneNode() as HTMLAudioElement | undefined
+    if (sound) {
+      activeSoundsRef.current.add(sound)
+      sound.currentTime = 0
+      void sound.play().catch(() => {
+        activeSoundsRef.current.delete(sound)
+      })
+      sound.addEventListener(
+        'ended',
+        () => {
+          activeSoundsRef.current.delete(sound)
+        },
+        { once: true },
+      )
+    }
+
     setParticles(prev => [...prev, ...newParticles])
     setNextId(prev => prev + PARTICLE_COUNT)
     setTimeout(() => {
