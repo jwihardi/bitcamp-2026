@@ -20,6 +20,13 @@ import type { Model, Agent, Manager, ReputationUpgrade } from './game-config'
 
 const AUTO_BUY_CUSHION_S = 10
 
+const IPO_FLAVOR_LINES = [
+  'Your lean team and sharp prompts made all the difference.',
+  'Turns out crisp prompts compound better than headcount.',
+  'Investors loved the margins. Customers loved the product enough.',
+  'You kept the team focused long enough to make the outcome inevitable.',
+]
+
 // ============ Helpers ============
 
 function formatNumber(num: number): string {
@@ -139,7 +146,7 @@ export default function IdleGamePage() {
   const [managers, setManagers] = useState<Manager[]>(INITIAL_MANAGERS)
   const [lifetimeUsers, setLifetimeUsers] = useState(0)
   const [lifetimeRevenue, setLifetimeRevenue] = useState(0)
-  const [showPivotModal, setShowPivotModal] = useState(false)
+  const [ipoPanel, setIpoPanel] = useState<0 | 1 | 2 | 3>(0)
 
   // ---- AI CFO state ----
   const [cfoReport, setCfoReport] = useState<CfoReport | null>(null)
@@ -329,7 +336,8 @@ export default function IdleGamePage() {
     setManagers(INITIAL_MANAGERS)
     setLifetimeUsers(0)
     setLifetimeRevenue(0)
-    setShowPivotModal(false)
+    setIpoPanel(0)
+    setGameSpeed(1)
     // Clear CFO report since game state reset
     setCfoReport(null)
     setCfoError(null)
@@ -597,6 +605,17 @@ export default function IdleGamePage() {
     advanceStage()
   }, [userbase, totalEarned, currentStageIndex, advanceStage])
 
+  // Auto-show IPO overlay when player reaches the IPO stage
+  const prevIsAtIPORef = useRef(false)
+  useEffect(() => {
+    const atIPO = currentStageIndex === FUNDING_STAGES.length - 1
+    if (atIPO && !prevIsAtIPORef.current) {
+      setIpoPanel(1)
+      setGameSpeed(0)
+    }
+    prevIsAtIPORef.current = atIPO
+  }, [currentStageIndex])
+
   useEffect(() => {
     let achievedMilestoneIndex = 0
     for (let i = 1; i < FUNDING_STAGES.length; i += 1) {
@@ -638,6 +657,11 @@ export default function IdleGamePage() {
   const totalAgentCount = agents.reduce((s, a) => s + a.count, 0)
   const unlockedModels = models.filter((m) => m.unlocked)
   const isAtIPO = currentStageIndex === FUNDING_STAGES.length - 1
+  const ipoValuation = Math.floor(totalEarned * 10)
+  const firstHiredAgent = agents.find((a) => a.count > 0)
+  const ipoCompanyName = firstHiredAgent ? `${firstHiredAgent.name} & Co.` : 'AI Agent Empire'
+  const ipoFlavorLine = IPO_FLAVOR_LINES[(totalAgentCount + currentStageIndex) % IPO_FLAVOR_LINES.length]
+  const ipoReputationGain = FUNDING_STAGES[FUNDING_STAGES.length - 1].reputationGain
 
   const SPEED_OPTIONS: Array<0 | 1 | 2 | 5> = [0, 1, 2, 5]
   const SPEED_LABELS: Record<number, string> = { 0: '⏸ 0×', 1: '▶ 1×', 2: '⏩ 2×', 5: '⏭ 5×' }
@@ -902,15 +926,15 @@ export default function IdleGamePage() {
                   </div>
                 )}
 
-                {/* Pivot button — shown only at IPO */}
+                {/* IPO button — shown only at final stage */}
                 {isAtIPO && (
                   <button
                     type="button"
-                    onClick={() => setShowPivotModal(true)}
-                    className="w-full h-[44px] rounded-[16px] font-bold text-[14px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-transform hover:-translate-y-0.5 cursor-pointer"
+                    onClick={() => { setIpoPanel(1); setGameSpeed(0) }}
+                    className="w-full h-[44px] rounded-[16px] font-bold text-[14px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1),0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-transform hover:-translate-y-0.5 cursor-pointer animate-pulse"
                     style={{ backgroundImage: 'linear-gradient(to right, #f97316, #ef4444)' }}
                   >
-                    🔄 Pivot &amp; Prestige
+                    🎉 IPO Achieved! Prestige
                   </button>
                 )}
               </div>
@@ -1226,65 +1250,180 @@ export default function IdleGamePage() {
         )
       })()}
 
-      {/* ========= PIVOT MODAL ========= */}
-      {showPivotModal && (
+      {/* ========= IPO OVERLAY — 3-panel flow ========= */}
+      {ipoPanel === 1 && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(0,0,0,0.6)] backdrop-blur-sm p-4"
-          onClick={() => setShowPivotModal(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+          style={{ background: 'radial-gradient(circle at top, rgba(194,122,255,0.3), transparent 35%), linear-gradient(180deg, #0f172a, #1e1b4b)' }}
           role="dialog"
           aria-modal="true"
-          aria-label="Pivot and Prestige"
+          aria-label="IPO Acquisition"
         >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white border-4 border-[#fed7aa] border-solid rounded-[24px] shadow-[0px_25px_50px_0px_rgba(0,0,0,0.25)] w-full max-w-[480px] p-[36px]"
-          >
-            <div className="flex items-center gap-[12px] mb-[24px]">
-              <span className="text-[40px] leading-[40px]" aria-hidden>🔄</span>
-              <div>
-                <p className="font-extrabold text-[24px] text-[#1e2939] leading-[32px]">Pivot &amp; Prestige</p>
-                <p className="font-normal text-[14px] text-[#4a5565] leading-[20px]">Reset your run and carry over reputation</p>
+          <div className="w-full max-w-[560px] rounded-[32px] border border-white/10 bg-white/5 backdrop-blur-lg p-[48px] text-center text-white shadow-[0px_25px_50px_0px_rgba(0,0,0,0.5)]">
+            <p className="text-[12px] uppercase tracking-[0.4em] text-purple-200">Acquisition</p>
+            <h1 className="mt-[16px] text-[48px] font-extrabold leading-[56px]">
+              Acquired for ${formatNumber(ipoValuation)}
+            </h1>
+            <p className="mt-[16px] text-[18px] text-stone-200 leading-[28px]">
+              Congratulations — your AI empire is going public.
+            </p>
+            <p className="mt-[12px] text-[14px] text-stone-400 leading-[22px] italic">
+              {ipoFlavorLine}
+            </p>
+            <button
+              type="button"
+              onClick={() => setIpoPanel(2)}
+              className="mt-[32px] h-[48px] px-[32px] rounded-[16px] font-bold text-[14px] text-white cursor-pointer hover:-translate-y-0.5 transition-transform shadow-[0px_10px_15px_0px_rgba(0,0,0,0.2)]"
+              style={{ backgroundImage: 'linear-gradient(135deg, #c27aff, #f6339a)' }}
+            >
+              See your stats →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ipoPanel === 2 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="IPO Result Card"
+        >
+          <div className="w-full max-w-[560px] rounded-[32px] bg-white p-[36px] shadow-[0px_25px_50px_0px_rgba(0,0,0,0.25)]">
+            <p className="text-[12px] uppercase tracking-[0.35em] text-[#6a7282]">Result Card</p>
+            <h2 className="mt-[12px] text-[28px] font-extrabold text-[#1e2939] leading-[36px]">{ipoCompanyName}</h2>
+
+            <div className="mt-[24px] grid grid-cols-2 gap-[12px]">
+              <div className="rounded-[16px] bg-[#faf5ff] border-[1.6px] border-[#e9d4ff] border-solid p-[16px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#8200db] font-bold">Valuation</p>
+                <p className="mt-[8px] text-[24px] font-extrabold text-[#1e2939] tabular-nums">${formatNumber(ipoValuation)}</p>
+              </div>
+              <div className="rounded-[16px] bg-[#f0fdf4] border-[1.6px] border-[#b9f8cf] border-solid p-[16px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#008236] font-bold">Revenue</p>
+                <p className="mt-[8px] text-[24px] font-extrabold text-[#1e2939] tabular-nums">${formatNumber(totalEarned)}</p>
+              </div>
+              <div className="rounded-[16px] bg-[#eff6ff] border-[1.6px] border-[#bfdbfe] border-solid p-[16px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#1d4ed8] font-bold">Peak Users</p>
+                <p className="mt-[8px] text-[24px] font-extrabold text-[#1e2939] tabular-nums">{formatNumber(lifetimeUsers)}</p>
+              </div>
+              <div className="rounded-[16px] bg-[#fff7ed] border-[1.6px] border-[#fed7aa] border-solid p-[16px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#9a3412] font-bold">Agents</p>
+                <p className="mt-[8px] text-[24px] font-extrabold text-[#1e2939] tabular-nums">{totalAgentCount}</p>
               </div>
             </div>
 
-            <div className="bg-[#fff7ed] border-[1.6px] border-[#fed7aa] border-solid rounded-[16px] px-[20px] py-[16px] mb-[24px] flex flex-col gap-[8px]">
-              <div className="flex justify-between items-center">
-                <span className="font-bold text-[14px] text-[#92400e]">Reputation gained</span>
-                <span className="font-extrabold text-[16px] text-[#f97316] tabular-nums">
-                  +{FUNDING_STAGES[FUNDING_STAGES.length - 1].reputationGain} pts
-                </span>
+            {/* Agent list */}
+            {agents.some((a) => a.count > 0) && (
+              <div className="mt-[20px] rounded-[16px] border-[1.6px] border-[#e5e7eb] border-solid p-[16px]">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[#6a7282] font-bold mb-[12px]">Your Team</p>
+                <div className="flex flex-col gap-[8px]">
+                  {agents.filter((a) => a.count > 0).map((agent) => (
+                    <div key={agent.id} className="flex items-center justify-between">
+                      <span className="text-[14px] text-[#364153]">
+                        {agent.emoji} {agent.name}
+                      </span>
+                      <span className="text-[13px] text-[#6a7282] font-bold tabular-nums">x{agent.count}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="font-normal text-[13px] text-[#b45309]">Lifetime users</span>
-                <span className="font-bold text-[13px] text-[#92400e] tabular-nums">{formatNumber(lifetimeUsers)}</span>
+            )}
+
+            <div
+              className="mt-[20px] flex items-center justify-between rounded-[16px] p-[16px]"
+              style={{ backgroundImage: 'linear-gradient(to right, #fff7ed, #faf5ff)' }}
+            >
+              <span className="font-bold text-[14px] text-[#92400e]">🏆 Reputation earned</span>
+              <span className="font-extrabold text-[18px] text-[#f97316] tabular-nums">
+                +{ipoReputationGain} pts
+              </span>
+            </div>
+
+            <p className="mt-[20px] text-[12px] text-[#99a1af] text-center">AI Agent Empire · Bitcamp 2026</p>
+
+            <button
+              type="button"
+              onClick={() => setIpoPanel(3)}
+              className="w-full mt-[20px] h-[48px] rounded-[16px] font-bold text-[14px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1)] cursor-pointer hover:-translate-y-0.5 transition-transform"
+              style={{ backgroundImage: 'linear-gradient(135deg, #1e293b, #334155)' }}
+            >
+              Claim reputation and upgrade →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {ipoPanel === 3 && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reputation Shop"
+        >
+          <div className="w-full max-w-[560px] max-h-[90vh] overflow-auto rounded-[32px] bg-white p-[36px] shadow-[0px_25px_50px_0px_rgba(0,0,0,0.25)]">
+            <div className="flex items-center justify-between mb-[24px]">
+              <div className="flex items-center gap-[12px]">
+                <span className="text-[32px]" aria-hidden>🏆</span>
+                <div>
+                  <p className="font-extrabold text-[24px] text-[#1e2939] leading-[32px]">Reputation Shop</p>
+                  <p className="font-normal text-[14px] text-[#4a5565]">Spend reputation to power up your next run</p>
+                </div>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="font-normal text-[13px] text-[#b45309]">Lifetime revenue</span>
-                <span className="font-bold text-[13px] text-[#92400e] tabular-nums">${formatNumber(lifetimeRevenue)}</span>
+              <div
+                className="rounded-full px-[12px] py-[4px]"
+                style={{ backgroundImage: 'linear-gradient(to right, #f59e0b, #f97316)' }}
+              >
+                <p className="font-bold text-[14px] text-white tabular-nums">{formatNumber(reputation)} pts</p>
               </div>
             </div>
 
-            <p className="font-normal text-[13px] text-[#6a7282] leading-[20px] mb-[24px]">
-              Your agents, cash, and users will reset. Reputation points and purchased upgrades carry over to your next run.
+            <div className="flex flex-col gap-[8px] mb-[24px]">
+              {reputationUpgrades.map((upgrade) => (
+                <button
+                  key={upgrade.id}
+                  type="button"
+                  onClick={() => buyReputationUpgrade(upgrade.id)}
+                  disabled={upgrade.purchased || reputation < upgrade.cost}
+                  className={`text-left w-full border-[1.6px] border-solid rounded-[16px] px-[16px] py-[12px] transition-all ${
+                    upgrade.purchased
+                      ? 'bg-[#f0fdf4] border-[#86efac] cursor-default'
+                      : reputation >= upgrade.cost
+                        ? 'bg-white border-[#dab2ff] hover:-translate-y-0.5 cursor-pointer shadow-[0px_4px_6px_0px_rgba(0,0,0,0.05)]'
+                        : 'bg-[#f9fafb] border-[#e5e7eb] opacity-60 cursor-not-allowed'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-[8px]">
+                    <div className="flex-1 min-w-0">
+                      <p className="font-bold text-[14px] text-[#1e2939] leading-[20px]">{upgrade.name}</p>
+                      <p className="font-normal text-[12px] text-[#6a7282] leading-[18px]">{upgrade.description}</p>
+                    </div>
+                    {upgrade.purchased ? (
+                      <span className="font-bold text-[12px] text-[#00a63e] shrink-0">✓ Active</span>
+                    ) : (
+                      <div
+                        className="rounded-full px-[10px] py-[3px] shrink-0"
+                        style={{ backgroundImage: 'linear-gradient(to right, #f59e0b, #f97316)' }}
+                      >
+                        <p className="font-bold text-[12px] text-white tabular-nums whitespace-nowrap">{upgrade.cost} pts</p>
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <p className="font-normal text-[13px] text-[#6a7282] leading-[20px] mb-[16px] text-center">
+              Your agents, cash, and users will reset. Reputation and upgrades carry over.
             </p>
 
-            <div className="flex gap-[12px]">
-              <button
-                type="button"
-                onClick={() => setShowPivotModal(false)}
-                className="flex-1 h-[44px] rounded-[16px] bg-[#f3f4f6] text-[#4a5565] font-bold text-[14px] hover:bg-[#e5e7eb] transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={pivot}
-                className="flex-1 h-[44px] rounded-[16px] font-bold text-[14px] text-white shadow-[0px_4px_6px_0px_rgba(0,0,0,0.1)] transition-transform hover:-translate-y-0.5 cursor-pointer"
-                style={{ backgroundImage: 'linear-gradient(to right, #f97316, #ef4444)' }}
-              >
-                Confirm Pivot
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={pivot}
+              className="w-full h-[52px] rounded-[16px] font-bold text-[16px] text-white shadow-[0px_10px_15px_0px_rgba(0,0,0,0.1)] cursor-pointer hover:-translate-y-0.5 transition-transform"
+              style={{ backgroundImage: 'linear-gradient(to right, #f97316, #ef4444)' }}
+            >
+              🔄 Start New Run
+            </button>
           </div>
         </div>
       )}
