@@ -4,7 +4,7 @@ import type {
   FundingRound,
   GamePhase,
 } from '@/lib/types'
-import { callGemini, extractJsonObject, jsonError } from '@/lib/gemini'
+import { callTerpAI, extractJsonObject, jsonError } from '@/lib/terpai'
 import { ROUNDS } from '@/lib/constants'
 
 const VALID_ROUNDS: FundingRound[] = [
@@ -113,14 +113,9 @@ ${compact ? 'Use short strings. Keep advice items under 90 characters. Keep less
 }
 
 async function requestCFOReport(payload: CFOPayload) {
-  return callGemini(
+  return callTerpAI(
     [{ role: 'user', content: buildCFOPrompt(payload, true) }],
     320,
-    {
-      temperature: 0.2,
-      topP: 0.8,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
   )
 }
 

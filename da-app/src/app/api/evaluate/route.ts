@@ -1,5 +1,5 @@
 import type { AgentRole, FundingRound } from '@/lib/types'
-import { callGemini, extractJsonObject, jsonError } from '@/lib/gemini'
+import { callTerpAI, extractJsonObject, jsonError } from '@/lib/terpai'
 
 const VALID_ROLES: AgentRole[] = ['sales', 'marketing', 'engineering', 'finance']
 const VALID_ROUNDS: FundingRound[] = [
@@ -85,7 +85,7 @@ async function requestEvaluation(
   users: number,
   features: number,
 ) {
-  return callGemini(
+  return callTerpAI(
     [
       {
         role: 'user',
@@ -93,11 +93,6 @@ async function requestEvaluation(
       },
     ],
     220,
-    {
-      temperature: 0.1,
-      topP: 0.8,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
   )
 }
 
