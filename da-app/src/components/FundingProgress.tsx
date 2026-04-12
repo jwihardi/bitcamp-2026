@@ -21,7 +21,7 @@ export function FundingProgress({ stage }: Props) {
             </span>
           </div>
           {i < STAGES.length - 1 && (
-            <div className="flex-1 flex flex-col pt-[12px]">
+            <div className="flex-1 flex flex-col pt-[12px] px-2">
               <ProgressStem
                 className="pointer-events-none w-full"
                 variant={i + 1 <= stage ? 'default' : 'unmet'}

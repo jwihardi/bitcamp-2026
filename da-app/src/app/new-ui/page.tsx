@@ -602,19 +602,20 @@ export default function NewUIPage() {
         </div>
 
         {/* Center pane */}
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'upgrades' && (
-            <UpgradesPane
-              reputation={reputation}
-              upgrades={reputationUpgrades}
-              onBuy={buyReputationUpgrade}
-            />
-          )}
-          {activeTab === 'stats' && (
-            <StatisticsPanel
-              tokens={tokens}
-              totalEarned={totalEarned}
-              lifetimeRevenue={lifetimeRevenue}
+        <div className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 overflow-y-auto">
+            {activeTab === 'upgrades' && (
+              <UpgradesPane
+                reputation={reputation}
+                upgrades={reputationUpgrades}
+                onBuy={buyReputationUpgrade}
+              />
+            )}
+            {activeTab === 'stats' && (
+              <StatisticsPanel
+                tokens={tokens}
+                totalEarned={totalEarned}
+                lifetimeRevenue={lifetimeRevenue}
               lifetimeCosts={lifetimeCosts}
               elapsedGameSeconds={elapsedGameSeconds}
               lifetimeProfitHistory={lifetimeProfitHistory}
@@ -623,16 +624,29 @@ export default function NewUIPage() {
               userbaseHistory={userbaseHistory}
               usersPerSecondHistory={usersPerSecondHistory}
               profitPerSecondHistory={profitPerSecondHistory}
-              usersPerSecond={usersPerSecond}
-              clickPower={clickPower}
-              currentStageIndex={currentStageIndex}
-              userbase={userbase}
-              profitPerSecond={passiveProfitPerSecond}
-              unlockedModels={unlockedModels}
-              totalModels={models.length}
-              nextStage={nextStage}
-            />
-          )}
+                usersPerSecond={usersPerSecond}
+                clickPower={clickPower}
+                currentStageIndex={currentStageIndex}
+                userbase={userbase}
+                profitPerSecond={passiveProfitPerSecond}
+                unlockedModels={unlockedModels}
+                totalModels={models.length}
+                nextStage={nextStage}
+              />
+            )}
+          </div>
+          <div className="px-4 py-3 absolute bottom-0 left-0 right-0" style={{ background: 'transparent' }}>
+            <div className="mx-auto w-full max-w-[720px] flex justify-center">
+              <CTOPanel
+                collapsed={ctoCollapsed}
+                onToggle={() => setCtoCollapsed((c) => !c)}
+                report={ctoReport}
+                loading={ctoLoading}
+                error={ctoError}
+                fresh={ctoFresh}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Right pane */}
@@ -664,15 +678,6 @@ export default function NewUIPage() {
         />
       )}
 
-      {/* AI CTO Panel — fixed bottom-right, auto-consults only */}
-      <CTOPanel
-        collapsed={ctoCollapsed}
-        onToggle={() => setCtoCollapsed((c) => !c)}
-        report={ctoReport}
-        loading={ctoLoading}
-        error={ctoError}
-        fresh={ctoFresh}
-      />
     </div>
   )
 }
