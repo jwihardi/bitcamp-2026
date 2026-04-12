@@ -4,28 +4,10 @@ import { useMemo } from 'react'
 import type { Model, FundingStage } from '../app/game-config'
 import { FundingProgress } from './FundingProgress'
 import { ProgressBar } from './ProgressBar'
-import { Tooltip } from './Tooltip'
-import { Text } from './Text'
 
 type HistoryPoint = {
   time: number
   value: number
-}
-
-const MODEL_EMOJI: Record<string, string> = {
-  nimbus_1:     '☁️',
-  quanta_s:     '⚡',
-  synapse_pro:  '🧠',
-  oracle_ultra: '🔮',
-  oracle_apex:  '✨',
-}
-
-const MODEL_DESCRIPTION: Record<string, string> = {
-  nimbus_1:     'Entry-level model. Reliable for simple tasks with low token costs.',
-  quanta_s:     'Mid-tier model with noticeably better output quality. Good efficiency.',
-  synapse_pro:  'High-quality model suited for complex agent workflows.',
-  oracle_ultra: 'Top-tier model with maximum quality ceiling. Heavy token cost.',
-  oracle_apex:  'Frontier-grade model. Exceptional quality — but expensive to run.',
 }
 
 function formatNumber(num: number): string {
@@ -435,81 +417,6 @@ export function StatisticsPanel({
               You&apos;ve reached IPO! 🎉
             </p>
           )}
-        </div>
-      </div>
-
-      {/* Upgrades */}
-      <div className="flex flex-col gap-4 items-start w-full shrink-0">
-        <SectionHeading>Upgrades</SectionHeading>
-        <p
-          style={{
-            fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
-            fontSize: 16,
-            fontWeight: 700,
-            lineHeight: 1.4,
-            color: 'black',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          You&apos;ve unlocked {unlockedModels.length}/{totalModels}.
-        </p>
-        <div className="flex gap-3 items-center flex-wrap shrink-0">
-          {unlockedModels.map((model) => (
-            <Tooltip
-              key={model.id}
-              content={
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl leading-none">{MODEL_EMOJI[model.id] ?? '🤖'}</span>
-                    <Text size="md" weight="bold" style={{ color: '#1e1e1e' }}>{model.name}</Text>
-                  </div>
-                  <Text
-                    size="sm"
-                    className="!whitespace-normal"
-                    style={{ color: '#666', lineHeight: 1.4, overflowWrap: 'anywhere' }}
-                  >
-                    {MODEL_DESCRIPTION[model.id] ?? ''}
-                  </Text>
-                  <Text
-                    size="sm"
-                    className="!whitespace-normal"
-                    style={{ color: '#b3b3b3', lineHeight: 1.4, overflowWrap: 'anywhere' }}
-                  >
-                    ×{model.qualityMultiplier.toFixed(1)} quality · ${model.costPerToken}/tok
-                  </Text>
-                </div>
-              }
-            >
-              <div
-                className="flex flex-col gap-0.5 items-center justify-center overflow-hidden p-1.5 rounded-lg cursor-default"
-                style={{
-                  width: 72,
-                  height: 72,
-                  background: 'white',
-                  border: '1px solid #d9d9d9',
-                  boxShadow: '0px 2px 0px 0px #cdcdcd',
-                  flexShrink: 0,
-                }}
-              >
-                <span className="text-2xl leading-none" aria-hidden>
-                  {MODEL_EMOJI[model.id] ?? '🤖'}
-                </span>
-                <p
-                  className="w-full overflow-hidden text-ellipsis text-center"
-                  style={{
-                    fontFamily: 'var(--sds-typography-body-font-family, "Nunito", sans-serif)',
-                    fontSize: 14,
-                    fontWeight: 400,
-                    lineHeight: 1.4,
-                    color: 'black',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  {model.name}
-                </p>
-              </div>
-            </Tooltip>
-          ))}
         </div>
       </div>
 
