@@ -116,6 +116,7 @@ export default function IdleGamePage() {
   const [cfoError, setCfoError] = useState<string | null>(null)
   const [cfoCollapsed, setCfoCollapsed] = useState(false)
   const [cfoCooldownUntil, setCfoCooldownUntil] = useState(0)
+  const [cfoFresh, setCfoFresh] = useState(false)
   const [gameOver, setGameOver] = useState(false)
 
   // Refs for auto-consult debouncing — avoids stale closures inside setTimeout
@@ -405,6 +406,8 @@ export default function IdleGamePage() {
       } else {
         const report = (await res.json()) as CfoReport
         setCfoReport(report)
+        setCfoFresh(true)
+        setTimeout(() => setCfoFresh(false), 2500)
       }
     } catch {
       setCfoError('CFO unavailable — try again.')
@@ -1323,11 +1326,11 @@ export default function IdleGamePage() {
 
             {/* Panel body */}
             <div className="px-[18px] py-[16px] flex flex-col gap-[12px] max-h-[70vh] overflow-y-auto">
-              {/* Status / loading indicator */}
-              {cfoLoading && (
-                <div className="flex items-center justify-center gap-[8px] h-[36px]">
-                  <span className="text-[14px]">⏳</span>
-                  <p className="text-[12px] text-[#64748b] font-medium">Consulting CFO…</p>
+              {/* Fresh flash — briefly shown when new report arrives */}
+              {cfoFresh && (
+                <div className="flex items-center gap-[6px] bg-[#f0fdf4] border border-[#bbf7d0] border-solid rounded-[10px] px-[12px] py-[8px]">
+                  <span className="text-[13px]">✓</span>
+                  <p className="text-[12px] text-[#15803d] font-semibold">Updated</p>
                 </div>
               )}
 
