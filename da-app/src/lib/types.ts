@@ -50,6 +50,8 @@ export type PromptEvaluation = {
   estimatedRevenuePerTick: number
   tokenEfficiency: number
   explanation: string
+  tips?: string[]      // 2-3 concrete improvements for this specific prompt
+  keywords?: string[]  // power words/phrases to include for this agent type
 }
 
 export type CFOHealth = 'healthy' | 'warning' | 'critical'

@@ -3,7 +3,7 @@
 // remapping them through the vibe-combinator sales/marketing/engineering/finance
 // enum. Keeps the canonical /api/evaluate untouched.
 
-import { callGemini, extractJsonObject, jsonError } from '@/lib/gemini'
+import { callTerpAI, extractJsonObject, jsonError } from '@/lib/terpai'
 
 export type IdleAgentType =
   | 'chatbot'
@@ -101,15 +101,21 @@ ${promptBlock}
 
 Judge how effective this prompt is for a ${displayName} specifically — not a generic agent. A great chatbot prompt is different from a great image generator prompt.
 
-Respond with ONLY valid JSON. No markdown. No code fences. Keep it concise.
-Keep the explanation under 18 words.
+Respond with ONLY valid JSON. No markdown. No code fences.
 {
   "score": <0-100, how effective this prompt is for a ${displayName}>,
-  "estimatedTokensPerTick": <integer, estimate how many LLM tokens this prompt would consume per invocation — consider prompt length, instruction complexity, and expected output size>,
-  "estimatedRevenuePerTick": <integer, estimated dollar output per tick for this agent given the prompt quality — ${AGENT_OUTPUT_UNIT[agentType]}>,
-  "tokenEfficiency": <float rounded to 2 decimals, ratio of estimatedRevenuePerTick to estimatedTokensPerTick — higher is better>,
-  "explanation": "<one sentence on what makes this prompt good or bad for a ${displayName}, max 25 words>"
-}`
+  "estimatedTokensPerTick": <integer, estimate tokens consumed per invocation>,
+  "estimatedRevenuePerTick": <integer, estimated dollar output — ${AGENT_OUTPUT_UNIT[agentType]}>,
+  "tokenEfficiency": <float rounded to 2 decimals, estimatedRevenuePerTick / estimatedTokensPerTick>,
+  "explanation": "<one sentence on the biggest strength or weakness of this prompt, max 20 words>",
+  "tips": [
+    "<specific, actionable change #1 the player can make RIGHT NOW to improve this exact prompt — e.g. 'Add a response length limit like: reply in 2 sentences max'>",
+    "<specific, actionable change #2>"
+  ],
+  "keywords": ["<power word or phrase a strong ${displayName} prompt should include>", "<another>", "<another>"]
+}
+Tips must be concrete edits, not vague advice. Bad tip: "be more specific". Good tip: "specify the target audience, e.g. 'for first-time users'".
+Keywords are 2-5 words or short phrases the player should weave into their prompt to signal intent clearly to the model.`
 }
 
 async function requestEvaluation(
@@ -120,7 +126,7 @@ async function requestEvaluation(
   revenue: number,
   agentCount: number,
 ) {
-  return callGemini(
+  return callTerpAI(
     [
       {
         role: 'user',
@@ -128,11 +134,6 @@ async function requestEvaluation(
       },
     ],
     220,
-    {
-      temperature: 0.1,
-      topP: 0.8,
-      thinkingConfig: { thinkingBudget: 0 },
-    },
   )
 }
 
@@ -238,11 +239,25 @@ export async function POST(request: Request) {
       estimatedRevenuePerTick?: unknown
       tokenEfficiency?: unknown
       explanation?: unknown
+      tips?: unknown
+      keywords?: unknown
     }
 
     if (typeof parsed.explanation !== 'string') {
       throw new Error('Evaluator returned an invalid explanation.')
     }
+
+    const tips = Array.isArray(parsed.tips)
+      ? (parsed.tips as unknown[])
+          .filter((t): t is string => typeof t === 'string' && t.trim().length > 0)
+          .slice(0, 3)
+      : []
+
+    const keywords = Array.isArray(parsed.keywords)
+      ? (parsed.keywords as unknown[])
+          .filter((k): k is string => typeof k === 'string' && k.trim().length > 0)
+          .slice(0, 5)
+      : []
 
     const evaluation = {
       score: clampScore(parsed.score),
@@ -256,6 +271,8 @@ export async function POST(request: Request) {
       ),
       tokenEfficiency: clampEfficiency(parsed.tokenEfficiency),
       explanation: parsed.explanation,
+      tips,
+      keywords,
     }
 
     logEvaluateIdleDebug('evaluation', evaluation)

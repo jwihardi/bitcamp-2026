@@ -1,10 +1,9 @@
 import type { Metadata } from 'next'
-import { GameProvider } from '@/context/GameContext'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Vibe Combinator',
-  description: 'Bitcamp 2026 startup sim',
+  title: 'AI Agent Empire',
+  description: 'Bitcamp 2026 idle game',
 }
 
 export default function RootLayout({
@@ -15,7 +14,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full antialiased">
       <body className="min-h-full flex flex-col">
-        <GameProvider>{children}</GameProvider>
+        {children}
       </body>
     </html>
   )
