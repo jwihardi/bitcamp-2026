@@ -70,7 +70,7 @@ export function RightPanel({
       className="flex flex-col shrink-0 h-full"
       style={{
         minWidth: 360,
-        width: 360,
+        width: 'clamp(360px, 24vw, 640px)',
         background: 'white',
         borderLeft: '1px solid #d9d9d9',
       }}

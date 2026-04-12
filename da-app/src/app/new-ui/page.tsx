@@ -480,7 +480,14 @@ export default function NewUIPage() {
       />
       <div className="flex flex-1 overflow-hidden">
         {/* Left pane */}
-        <div className="border-r" style={{ borderColor: '#d9d9d9', width: '360px', flexShrink: 0 }}>
+        <div
+          className="border-r"
+          style={{
+            borderColor: '#d9d9d9',
+            width: 'clamp(360px, 24vw, 640px)',
+            flexShrink: 0,
+          }}
+        >
           <LeftPanel
             percentage={percentage}
             userCount={Math.floor(userbase)}
