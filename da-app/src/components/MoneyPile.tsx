@@ -34,8 +34,6 @@ export function MoneyPile({
   onGoldButtonClick,
 }: MoneyPileProps) {
   const pct = Math.min(100, Math.max(0, percentage))
-  const [editableName, setEditableName] = useState(companyName ?? 'Your Company')
-
   return (
     <div
       className={`relative w-full overflow-hidden ${className ?? ''}`}
@@ -73,7 +71,15 @@ export function MoneyPile({
       {/* Foreground: badge + label + coin */}
       <div className="relative flex flex-col items-center gap-2 pt-8 px-4" style={{ zIndex: 2 }}>
         {/* Company name badge */}
-        <div className="bg-black/20 rounded-lg px-16 py-[2px]">
+        <div
+          className="rounded-lg px-16 py-[4px]"
+          style={{
+            background: 'rgba(255, 255, 255, 0.52)',
+            border: '1px solid rgba(255, 255, 255, 0.42)',
+            boxShadow: '0 10px 30px rgba(255, 255, 255, 0.18)',
+            backdropFilter: 'blur(10px)',
+          }}
+        >
           {onCompanyNameChange ? (
             <input
               type="text"
@@ -86,12 +92,12 @@ export function MoneyPile({
               }}
               maxLength={32}
               placeholder="Your Company"
-              className="min-w-[220px] w-full bg-transparent border-none outline-none text-center text-black/35 placeholder:text-black/25 text-2xl font-semibold leading-tight caret-black/40"
+              className="min-w-[220px] w-full bg-transparent border-none outline-none text-center text-black/80 placeholder:text-black/45 text-2xl font-semibold leading-tight caret-black/70"
               style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
             />
           ) : (
             <p
-              className="text-black/35 text-2xl font-semibold leading-tight whitespace-nowrap"
+              className="text-black/80 text-2xl font-semibold leading-tight whitespace-nowrap"
               style={{ letterSpacing: '-0.48px', fontFamily: 'Nunito, sans-serif' }}
             >
               {companyName}

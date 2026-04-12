@@ -61,6 +61,12 @@ function getInitialState(upgrades: ReputationUpgrade[]) {
 }
 
 export default function NewUIPage() {
+  const [toolNotification, setToolNotification] = useState<{
+    id: number
+    tone: 'success' | 'info' | 'error'
+    title: string
+    body: string
+  } | null>(null)
   const [activeTab, setActiveTab] = useState<HeaderTab>('stats')
   const [reputationUpgrades, setReputationUpgrades] = useState<ReputationUpgrade[]>(INITIAL_REPUTATION_UPGRADES)
   const [tokens, setTokens] = useState(() => getInitialState(INITIAL_REPUTATION_UPGRADES).tokens)
@@ -112,8 +118,22 @@ export default function NewUIPage() {
   const userbaseRef = useRef(0)
   const usersPerSecondRef = useRef(0)
   const profitPerSecondRef = useRef(0)
+  const toolNotificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const gameSpeed: number = 1
+
+  const showToolNotification = useCallback((
+    tone: 'success' | 'info' | 'error',
+    title: string,
+    body: string,
+  ) => {
+    if (toolNotificationTimerRef.current) clearTimeout(toolNotificationTimerRef.current)
+    setToolNotification({ id: Date.now(), tone, title, body })
+    toolNotificationTimerRef.current = setTimeout(() => {
+      setToolNotification(null)
+      toolNotificationTimerRef.current = null
+    }, 3_000)
+  }, [])
 
   useEffect(() => {
     const roundAudio = new Audio('/levelup.mp3')
@@ -132,6 +152,12 @@ export default function NewUIPage() {
       userAudio.pause()
       userAudio.src = ''
       userLevelUpAudioRef.current = null
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (toolNotificationTimerRef.current) clearTimeout(toolNotificationTimerRef.current)
     }
   }, [])
 
@@ -312,12 +338,18 @@ export default function NewUIPage() {
     if (!model || model.unlocked || tokens < model.unlockCost) return
     setTokens((t) => t - model.unlockCost)
     setModels((prev) => prev.map((m) => (m.id === modelId ? { ...m, unlocked: true } : m)))
+    showToolNotification('success', 'Model unlocked', `${model.name} is ready for your agents.`)
   }
 
   const changeAgentModel = (agentId: IdleAgentType, modelId: string) => {
+    const agent = agents.find((entry) => entry.id === agentId)
+    const model = models.find((entry) => entry.id === modelId)
     setAgents((prev) =>
       prev.map((a) => (a.id === agentId ? { ...a, selectedModel: modelId } : a)),
     )
+    if (agent && model) {
+      showToolNotification('info', 'Model switched', `${agent.name} now uses ${model.name}.`)
+    }
   }
 
   const applyEvaluation = (agentId: IdleAgentType, prompt: string, evaluation: PromptEvaluation) => {
@@ -331,7 +363,13 @@ export default function NewUIPage() {
   }
 
   const handleAnalyze = (agentId: IdleAgentType, prompt: string) => {
+    const agent = agents.find((entry) => entry.id === agentId)
     setEvaluatingAgentIds((prev) => new Set(prev).add(agentId))
+    showToolNotification(
+      'info',
+      'Analyzing prompt',
+      agent ? `Reviewing the latest instructions for ${agent.name}.` : 'Reviewing prompt quality.',
+    )
     const stageContext = {
       stage: FUNDING_STAGES[currentStageIndex].name,
       users: Math.floor(userbase),
@@ -341,6 +379,13 @@ export default function NewUIPage() {
     void evaluateIdlePrompt(prompt, agentId, stageContext)
       .then((evaluation) => {
         applyEvaluation(agentId, prompt, evaluation)
+        showToolNotification(
+          'success',
+          'Analysis complete',
+          agent
+            ? `${agent.name} scored ${Math.round(evaluation.score)}/100.`
+            : `Prompt scored ${Math.round(evaluation.score)}/100.`,
+        )
         setEvaluatingAgentIds((prev) => {
           const next = new Set(prev)
           next.delete(agentId)
@@ -349,6 +394,11 @@ export default function NewUIPage() {
       })
       .catch((e) => {
         console.error('[handleAnalyze] evaluation failed', e instanceof Error ? e.message : e)
+        showToolNotification(
+          'error',
+          'Analysis failed',
+          e instanceof Error ? e.message : 'Prompt evaluation failed.',
+        )
         setEvaluatingAgentIds((prev) => {
           const next = new Set(prev)
           next.delete(agentId)
@@ -394,15 +444,20 @@ export default function NewUIPage() {
       })
       if (!res.ok) {
         const err = (await res.json().catch(() => ({}))) as { error?: string }
-        setCtoError(err.error ?? 'CTO unavailable — try again.')
+        const message = err.error ?? 'CTO unavailable — try again.'
+        setCtoError(message)
+        showToolNotification('error', 'AI CTO unavailable', message)
       } else {
         const report = (await res.json()) as CtoReport
         setCtoReport(report)
         setCtoFresh(true)
+        showToolNotification('success', 'AI CTO updated', 'Fresh technical advice is ready.')
         setTimeout(() => setCtoFresh(false), 2500)
       }
     } catch {
-      setCtoError('CTO unavailable — try again.')
+      const message = 'CTO unavailable — try again.'
+      setCtoError(message)
+      showToolNotification('error', 'AI CTO unavailable', message)
     } finally {
       setCtoLoading(false)
     }
@@ -575,6 +630,55 @@ export default function NewUIPage() {
 
   return (
     <div className="flex flex-col h-screen" style={{ background: 'white' }}>
+      {toolNotification && (
+        <div className="pointer-events-none fixed right-5 top-5 z-[80]">
+          <div
+            key={toolNotification.id}
+            className="min-w-[280px] max-w-[360px] rounded-[18px] border px-4 py-3 shadow-[0_18px_45px_rgba(15,23,42,0.16)] backdrop-blur-sm"
+            style={{
+              background:
+                toolNotification.tone === 'success'
+                  ? 'rgba(240, 253, 244, 0.96)'
+                  : toolNotification.tone === 'error'
+                    ? 'rgba(254, 242, 242, 0.96)'
+                    : 'rgba(248, 250, 252, 0.96)',
+              borderColor:
+                toolNotification.tone === 'success'
+                  ? '#86efac'
+                  : toolNotification.tone === 'error'
+                    ? '#fca5a5'
+                    : '#cbd5e1',
+            }}
+          >
+            <p
+              className="text-sm font-bold"
+              style={{
+                color:
+                  toolNotification.tone === 'success'
+                    ? '#166534'
+                    : toolNotification.tone === 'error'
+                      ? '#b91c1c'
+                      : '#0f172a',
+              }}
+            >
+              {toolNotification.title}
+            </p>
+            <p
+              className="mt-1 text-sm leading-5"
+              style={{
+                color:
+                  toolNotification.tone === 'success'
+                    ? '#166534'
+                    : toolNotification.tone === 'error'
+                      ? '#991b1b'
+                      : '#475569',
+              }}
+            >
+              {toolNotification.body}
+            </p>
+          </div>
+        </div>
+      )}
       <HeaderView
         arr={tokens}
         users={Math.floor(userbase)}
