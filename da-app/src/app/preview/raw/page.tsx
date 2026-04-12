@@ -63,8 +63,8 @@ async function evaluateIdlePrompt(
 function getInitialState(upgrades: ReputationUpgrade[]) {
   const has = (effect: string) => upgrades.some((u) => u.effect === effect && u.purchased)
   return {
-    tokens: has('startingCash') ? 1500 : 30,
-    userbase: has('startingUsers') ? 150 : 15,
+    tokens: has('startingCash') ? 1500 : 0,
+    userbase: has('startingUsers') ? 150 : 0,
     agents: INITIAL_AGENTS.map((a) => ({
       ...a,
       promptQuality: has('promptQuality') ? 70 : 50,
