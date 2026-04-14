@@ -43,7 +43,7 @@ Each round also requires minimum net profit per second to advance.
 | Model tiers (Nimbus → Oracle Apex) | Quality/cost tradeoffs in AI products |
 | Service quality & user churn | Why quality matters for retention |
 | Reputation upgrades | Compounding advantage, strategic reinvestment |
-| Achievements | 35+ milestones tracking progress across categories |
+| Achievements | 40+ milestones tracking progress across categories |
 
 ### Agent Types
 
@@ -106,12 +106,32 @@ Analyzes your entire company — agents, prompt quality, costs, revenue, service
 
 - **Next.js** — App Router, server components, API routes
 - **React** — `useState`/`useCallback`/`useMemo` for game state
-- **TerpAI** — prompt evaluation + CTO consultations, accessed via **Playwright** (AI agent web automation)
+- **TerpAI** — prompt evaluation + CTO consultations, accessed via **Playwright** Chromium browser automation (no public API — see below)
 - **TypeScript** — end-to-end
 - **Tailwind CSS** — all UI
 - **Deployed on Vercel**
 
 All AI calls are routed through Playwright-driven web automation — TerpAI is invoked server-side so credentials never touch the client. Evaluation results are cached on the agent object. The game loop runs client-side on continuous `setInterval` cycles (100ms tick for user generation and revenue).
+
+### How TerpAI Access Works
+
+TerpAI (`terpai.umd.edu`) is a University of Maryland AI platform with **no public API**. Every call goes through a real Chromium browser controlled by Playwright (`da-app/src/lib/terpai.ts`).
+
+**Authentication flow:**
+1. On first use, a visible browser window opens and waits for the user to log in through UMD's SSO (Shibboleth)
+2. After successful login, all session data — cookies, `localStorage`, and `sessionStorage` — is captured and saved to `.terpai-auth.json` in the project root
+3. On every subsequent call, a headless Chromium instance launches with that stored session injected before any page loads — no re-login needed until the session expires
+4. If the session has expired, the auth file is deleted and the login flow repeats once automatically
+
+**Request flow per AI call:**
+1. A mutex lock ensures only one Playwright session runs at a time (prevents race conditions across concurrent API requests)
+2. A headless browser navigates to TerpAI, starts a new chat, and submits the constructed prompt
+3. The response is polled every 1.5 seconds; a reply is considered complete when the text has been stable for 3 seconds (or the streaming indicator disappears)
+4. Maximum wait: 2 minutes — after which an error is returned
+5. Twelve CSS selector fallbacks are tried in sequence to find the chat input (defensive against UI changes)
+6. If the response JSON is malformed, the call retries once in compact mode before returning an error
+
+Two server-side API routes serve the idle game: `/api/evaluate-idle` (per-agent prompt scoring) and `/api/cfo-idle` (company-wide CTO advice). Both build a structured prompt, call TerpAI via the automation layer, extract a JSON object from the response, validate and clamp all fields, and return the result. Responses from `/api/cfo-idle` are cached server-side for 45 seconds to avoid redundant calls.
 
 ---
 
@@ -144,7 +164,7 @@ bitcamp-2026/
 │           ├── terpai.ts        # TerpAI Playwright integration
 │           ├── types.ts         # TypeScript types
 │           └── constants.ts     # Shared constants
-└── docs/                      # Game design docs
+└── docs/                      # Game design docs (see note below)
     ├── GAME_STATE.md
     ├── TICK_ENGINE.md
     ├── FUNDING_GATES.md
@@ -154,6 +174,8 @@ bitcamp-2026/
     ├── TIP_CARDS.md
     └── PRESTIGE.md
 ```
+
+> **Note on design docs:** The files in `/docs/` describe an earlier concept called "Vibe Combinator" — a startup simulation with different agent roles (Sales, Marketing, Engineering, Finance), ARR-based funding milestones, and Gemini API calls. That design informed the project but the implemented game (`new-ui/page.tsx`) uses the idle clicker mechanics defined in `game-config.ts`. Where the docs conflict with the code, the code is canonical.
 
 ---
 
