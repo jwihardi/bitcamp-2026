@@ -1,4 +1,4 @@
-# AI Agent Empire
+# Vibe Combinator
 
 > **Build the AI empire. Write the prompts. Scale to IPO.**
 
