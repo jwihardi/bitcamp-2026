@@ -209,4 +209,4 @@ That's not a side effect. That's the design.
 
 ---
 
-*Built at Bitcamp 2026.*
+*Built at Bitcamp 2026. ([Devpost](https://devpost.com/software/vibe-combinator))*
