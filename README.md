@@ -139,32 +139,32 @@ Two server-side API routes serve the idle game: `/api/evaluate-idle` (per-agent 
 
 ```
 bitcamp-2026/
-├── da-app/                    # Next.js application
+├── da-app/                                # Next.js application
 │   └── src/
 │       ├── app/
 │       │   ├── new-ui/
-│       │   │   └── page.tsx   # Main game page (idle clicker UI)
-│       │   ├── game-config.ts # Models, agents, stages, upgrades
+│       │   │   └── page.tsx               # Main game page (idle clicker UI)
+│       │   ├── game-config.ts             # Models, agents, stages, upgrades
 │       │   └── api/
-│       │       ├── evaluate-idle/ # AI prompt evaluator (per-agent-type)
-│       │       └── cfo-idle/      # AI CTO advisor
+│       │       ├── evaluate-idle/         # AI prompt evaluator (per-agent-type)
+│       │       └── cfo-idle/              # AI CTO advisor
 │       ├── components/
-│       │   ├── Header.tsx         # Tab bar (Stats/Upgrades/Achievements)
-│       │   ├── LeftPanel.tsx      # Company info, progress, gold button
-│       │   ├── RightPanel.tsx     # Agent shop + model shop
-│       │   ├── StatisticsPanel.tsx # Live charts and metrics
-│       │   ├── UpgradesPane.tsx   # Reputation upgrade shop
-│       │   ├── AchievementsPane.tsx # Achievement grid
-│       │   ├── AgentEditorModal.tsx # Prompt editor + model selector
-│       │   ├── CTOPanel.tsx       # AI CTO collapsible panel
-│       │   ├── GoldButton.tsx     # Click-to-earn button
+│       │   ├── Header.tsx                 # Tab bar (Stats/Upgrades/Achievements)
+│       │   ├── LeftPanel.tsx              # Company info, progress, gold button
+│       │   ├── RightPanel.tsx             # Agent shop + model shop
+│       │   ├── StatisticsPanel.tsx        # Live charts and metrics
+│       │   ├── UpgradesPane.tsx           # Reputation upgrade shop
+│       │   ├── AchievementsPane.tsx       # Achievement grid
+│       │   ├── AgentEditorModal.tsx       # Prompt editor + model selector
+│       │   ├── CTOPanel.tsx               # AI CTO collapsible panel
+│       │   ├── GoldButton.tsx             # Click-to-earn button
 │       │   └── ...
 │       └── lib/
-│           ├── achievements.ts  # 35+ achievement definitions
-│           ├── terpai.ts        # TerpAI Playwright integration
-│           ├── types.ts         # TypeScript types
-│           └── constants.ts     # Shared constants
-└── docs/                      # Game design docs (see note below)
+│           ├── achievements.ts            # 35+ achievement definitions
+│           ├── terpai.ts                  # TerpAI Playwright integration
+│           ├── types.ts                   # TypeScript types
+│           └── constants.ts               # Shared constants
+└── docs/                                  # Game design docs (see note below)
     ├── GAME_STATE.md
     ├── TICK_ENGINE.md
     ├── FUNDING_GATES.md
